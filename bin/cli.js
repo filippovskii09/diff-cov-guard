@@ -2,33 +2,10 @@
 
 import { parseArgs } from 'node:util';
 
-const options = {
-  threshold: {
-    type: 'string',
-    short: 't',
-    default: '90',
-  },
-  lcov: {
-    type: 'string',
-    short: 'l',
-    default: './coverage/lcov.info',
-  },
-  base: {
-    type: 'string',
-    short: 'b',
-  },
-  help: {
-    type: 'boolean',
-    short: 'h',
-  },
-  version: {
-    type: 'boolean',
-    short: 'v',
-  },
-};
+import { ARGS_OPTIONS } from './constants';
 
 try {
-  const { values } = parseArgs({ options, allowPositionals: true });
+  const { values } = parseArgs({ options: ARGS_OPTIONS, allowPositionals: true });
 
   if (values.help) {
     console.log(`
