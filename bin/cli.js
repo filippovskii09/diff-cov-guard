@@ -2,7 +2,8 @@
 
 import { parseArgs } from 'node:util';
 
-import { ARGS_OPTIONS } from './constants';
+import { ARGS_OPTIONS, DEFAULT_BASE_BRANCH } from './constants.js';
+import { getEnvironment } from '../src/environment.js';
 
 try {
   const { values } = parseArgs({ options: ARGS_OPTIONS, allowPositionals: true });
@@ -15,9 +16,9 @@ Usage:
   npx diff-cov-guard [options]
 
 Options:
-  -t, --threshold <number>  Code coverage threshold in % (default: 90)
-  -l, --lcov <path>         Path to lcov.info (default: ./coverage/lcov.info)
-  -b, --base <branch>       Base branch for comparison (e.g., origin/main)
+  -t, --threshold <number>  Code coverage threshold in % (default: ${ARGS_OPTIONS.threshold.default})
+  -l, --lcov <path>         Path to lcov.info (default: ${ARGS_OPTIONS.lcov.default})
+  -b, --base <branch>       Base branch for comparison (default: ${DEFAULT_BASE_BRANCH})
   -h, --help                Show help
   -v, --version             Show version
     `);
@@ -35,6 +36,18 @@ Options:
     'LCOV path': values.lcov,
     'Base branch': values.base || 'Auto-detection (coming in 2.2)',
   });
+
+	const env = getEnvironment();
+
+const config = {
+	threshold: Number(values.threshold),
+	lcovPath: values.lcov,
+	baseBranch: env.baseBranch || values.base || DEFAULT_BASE_BRANCH,
+}
+
+console.log(`Environment: ${env.type.toUpperCase()}`);
+console.log(`Base branch: ${config.baseBranch}`);
+
 
 } catch (error) {
   console.error(`❌ Error: ${error.message}`);

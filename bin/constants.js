@@ -1,3 +1,5 @@
+export const DEFAULT_BASE_BRANCH = 'origin/main';
+
 export const ARGS_OPTIONS = {
 	threshold: {
 		type: 'string',
