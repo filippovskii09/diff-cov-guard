@@ -3,3 +3,5 @@ export const ENV_TYPES = {
 	GITLAB: 'GITLAB',
 	LOCAL: 'LOCAL',
 }
+
+export const DEFAULT_BRANCH = 'main';

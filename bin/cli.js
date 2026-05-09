@@ -2,8 +2,9 @@
 
 import { parseArgs } from 'node:util';
 
-import { ARGS_OPTIONS, DEFAULT_BASE_BRANCH } from './constants.js';
 import { getEnvironment } from '../src/environment.js';
+import { ARGS_OPTIONS, DEFAULT_BASE_BRANCH } from './constants.js';
+import { getRemoteDefaultBranch } from '../src/git.js';
 
 try {
   const { values } = parseArgs({ options: ARGS_OPTIONS, allowPositionals: true });
@@ -31,23 +32,24 @@ Options:
   }
 
   console.log('🚀 Starting check with parameters:');
+
+  const env = getEnvironment();
+
+  const resolvedBase = values.base || env.baseBranch || getRemoteDefaultBranch();
+
+  const config = {
+    threshold: Number(values.threshold),
+    lcovPath: values.lcov,
+    baseBranch: resolvedBase,
+  }
+
+  console.log(`Environment: ${env.type.toUpperCase()}`);
+
   console.table({
-    'Threshold (%)': values.threshold,
-    'LCOV path': values.lcov,
-    'Base branch': values.base || 'Auto-detection (coming in 2.2)',
+    'Threshold (%)': config.threshold,
+    'LCOV Path': config.lcovPath,
+    'Base Branch': config.baseBranch,
   });
-
-	const env = getEnvironment();
-
-const config = {
-	threshold: Number(values.threshold),
-	lcovPath: values.lcov,
-	baseBranch: env.baseBranch || values.base || DEFAULT_BASE_BRANCH,
-}
-
-console.log(`Environment: ${env.type.toUpperCase()}`);
-console.log(`Base branch: ${config.baseBranch}`);
-
 
 } catch (error) {
   console.error(`❌ Error: ${error.message}`);
