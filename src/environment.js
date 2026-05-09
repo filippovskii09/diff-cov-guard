@@ -14,7 +14,7 @@ export const getEnvironment  = () => {
 		return {
 			type: ENV_TYPES.GITLAB,
 			isCI: true,
-			baseBranch: process.env.GITLAB_COMMIT_BEFORE,
+			baseBranch: process.env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME,
 			currentBranch: process.env.GITLAB_COMMIT_REF_NAME,
 		}
 	}

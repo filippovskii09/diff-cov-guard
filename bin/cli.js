@@ -2,9 +2,8 @@
 
 import { parseArgs } from 'node:util';
 
-import { getEnvironment } from '../src/environment.js';
-import { ARGS_OPTIONS, DEFAULT_BASE_BRANCH } from './constants.js';
-import { getRemoteDefaultBranch } from '../src/git.js';
+import { ARGS_OPTIONS, DEFAULT_BASE_BRANCH } from '../src/constants.js';
+import { run } from '../src/index.js';
 
 try {
   const { values } = parseArgs({ options: ARGS_OPTIONS, allowPositionals: true });
@@ -31,25 +30,7 @@ Options:
     process.exit(0);
   }
 
-  console.log('🚀 Starting check with parameters:');
-
-  const env = getEnvironment();
-
-  const resolvedBase = values.base || env.baseBranch || getRemoteDefaultBranch();
-
-  const config = {
-    threshold: Number(values.threshold),
-    lcovPath: values.lcov,
-    baseBranch: resolvedBase,
-  }
-
-  console.log(`Environment: ${env.type.toUpperCase()}`);
-
-  console.table({
-    'Threshold (%)': config.threshold,
-    'LCOV Path': config.lcovPath,
-    'Base Branch': config.baseBranch,
-  });
+	await run(values);
 
 } catch (error) {
   console.error(`❌ Error: ${error.message}`);
