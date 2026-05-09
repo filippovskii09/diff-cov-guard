@@ -1,5 +1,14 @@
 import { ENV_TYPES } from "./constants.js"
 
+/**
+ * Detects the execution environment from supported CI variables.
+ *
+ * GitHub Actions and GitLab CI return their merge-request base and current
+ * branch metadata when available. Local runs intentionally use `null` branch
+ * values so callers can fall back to CLI options or Git defaults.
+ *
+ * @returns {{type: string, isCI: boolean, baseBranch: string|null, currentBranch: string|null}} Environment metadata for branch selection.
+ */
 export const getEnvironment  = () => {
 	if(process.env.GITHUB_ACTIONS) {
 		return {

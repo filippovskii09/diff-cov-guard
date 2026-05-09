@@ -1,6 +1,19 @@
 import { getEnvironment } from "./environment.js";
 import { fetchBranch, getChangedFiles, getRemoteDefaultBranch } from "./git.js";
 
+/**
+ * Runs the coverage guard workflow for the current repository context.
+ *
+ * Determines the comparison branch from CLI arguments, CI metadata, or the
+ * remote default branch, fetches the base branch in CI, and prints the changed
+ * files that downstream coverage checks should evaluate.
+ *
+ * @param {object} args - Parsed CLI options.
+ * @param {string} [args.base] - Explicit base branch override.
+ * @param {string|number} args.threshold - Required coverage threshold percentage.
+ * @param {string} args.lcov - Path to the LCOV report used by the check.
+ * @returns {Promise<void>} Resolves after reporting the comparison context.
+ */
 export async function run(args) {
 	console.log('Starting coverage check...');
 
