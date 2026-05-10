@@ -1,0 +1,102 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
+
+function toPosixPath(filePath) {
+	return filePath.split(sep).join('/').replaceAll('\\', '/');
+}
+
+function trimCurrentDirPrefix(filePath) {
+	return filePath.replace(/^\.\//, '');
+}
+
+/**
+ * Converts LCOV source paths to repository-relative paths.
+ *
+ * Git reports changed files relative to the repository root. LCOV can report
+ * paths as absolute, repo-relative, or relative to the directory where tests ran.
+ * This function brings those variants into the same shape Git uses.
+ *
+ * @param {string} sourcePath - Path from an LCOV SF record.
+ * @param {object} options - Path context.
+ * @param {string} options.repoRoot - Absolute repository root path.
+ * @param {string} [options.rootDir] - Directory relative LCOV paths start from.
+ * @returns {string} Repository-relative POSIX-style path.
+ */
+export function normalizePath(sourcePath, { repoRoot = process.cwd(), rootDir = repoRoot } = {}) {
+	const cleanSourcePath = sourcePath.trim();
+	const absoluteRepoRoot = resolve(repoRoot);
+	const absoluteRootDir = resolve(rootDir);
+
+	const absoluteSourcePath = isAbsolute(cleanSourcePath)
+		? cleanSourcePath
+		: resolve(absoluteRootDir, cleanSourcePath);
+
+	return trimCurrentDirPrefix(toPosixPath(relative(absoluteRepoRoot, absoluteSourcePath)));
+}
+
+function createCoverageRecord(filePath) {
+	return {
+		path: filePath,
+		lines: new Map(),
+	};
+}
+
+function parseLineCoverage(line) {
+	const [, payload] = line.split(':');
+	const [lineNumber, hitCount] = payload.split(',');
+
+	return {
+		lineNumber: Number(lineNumber),
+		hitCount: Number(hitCount),
+	};
+}
+
+function finalizeRecord(records, currentRecord) {
+	if (currentRecord) {
+		records.set(currentRecord.path, currentRecord);
+	}
+}
+
+/**
+ * Parses an LCOV report and keys records by normalized repository-relative path.
+ *
+ * @param {string} lcovPath - Path to the lcov.info file.
+ * @param {object} options - Path context.
+ * @param {string} options.repoRoot - Absolute repository root path.
+ * @param {string} [options.rootDir] - Directory relative LCOV paths start from.
+ * @returns {Map<string, {path: string, lines: Map<number, number>}>}
+ */
+export function parseLcov(lcovPath, options = {}) {
+	if (!existsSync(lcovPath)) {
+		throw new Error(`LCOV report not found at ${lcovPath}`);
+	}
+
+	const content = readFileSync(lcovPath, 'utf8');
+	const records = new Map();
+	let currentRecord = null;
+
+	for (const line of content.split(/\r?\n/)) {
+		if (line.startsWith('SF:')) {
+			finalizeRecord(records, currentRecord);
+
+			const sourcePath = line.slice(3);
+			currentRecord = createCoverageRecord(normalizePath(sourcePath, options));
+			continue;
+		}
+
+		if (line.startsWith('DA:') && currentRecord) {
+			const { lineNumber, hitCount } = parseLineCoverage(line);
+			currentRecord.lines.set(lineNumber, hitCount);
+			continue;
+		}
+
+		if (line === 'end_of_record') {
+			finalizeRecord(records, currentRecord);
+			currentRecord = null;
+		}
+	}
+
+	finalizeRecord(records, currentRecord);
+
+	return records;
+}

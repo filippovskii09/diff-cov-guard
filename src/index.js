@@ -1,6 +1,7 @@
 import { getEnvironment } from "./environment.js";
 import { fetchBranch, getChangedFiles, getRemoteDefaultBranch } from "./git.js";
 import { loadConfig } from "./config.js";
+import { parseLcov } from "./lcov.js";
 
 /**
  * Runs the coverage guard workflow for the current repository context.
@@ -35,12 +36,18 @@ export async function run(args) {
 	}
 
 	const changedFiles = getChangedFiles(config.baseBranch);
+	const coverageByFile = parseLcov(config.lcovPath, {
+		repoRoot: process.cwd(),
+		rootDir: config.rootDir,
+	});
 
   console.table({
     'Threshold (%)': config.threshold,
     'LCOV Path': config.lcovPath,
+    'LCOV Root Dir': config.rootDir,
     'Base Branch': config.baseBranch,
 		'Changed Files': changedFiles.length,
+		'LCOV Files': coverageByFile.size,
   });
 
 	if(changedFiles.length === 0) {

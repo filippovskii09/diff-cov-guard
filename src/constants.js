@@ -23,6 +23,9 @@ export const ARGS_OPTIONS = {
 		type: 'string',
 		short: 'b',
 	},
+	'root-dir': {
+		type: 'string',
+	},
 	help: {
 		type: 'boolean',
 		short: 'h',

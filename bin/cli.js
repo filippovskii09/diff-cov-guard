@@ -19,6 +19,7 @@ Options:
   -t, --threshold <number>  Code coverage threshold in % (default: ${ARGS_OPTIONS.threshold.default})
   -l, --lcov <path>         Path to lcov.info (default: ${ARGS_OPTIONS.lcov.default})
   -b, --base <branch>       Base branch for comparison (default: ${DEFAULT_BASE_BRANCH})
+      --root-dir <path>     Directory LCOV relative paths are based on (default: current directory)
   -h, --help                Show help
   -v, --version             Show version
     `);

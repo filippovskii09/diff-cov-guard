@@ -1,5 +1,5 @@
 import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { resolve, join } from 'node:path';
 
 import { ARGS_OPTIONS, DEFAULT_BRANCH, CONFIG_FILES } from './constants.js';
 
@@ -43,6 +43,12 @@ function resolveConfig(cliArgs, fileConfigs) {
 			cliArgs.base ??
 			fileConfigs.baseBranch ??
 			DEFAULT_BRANCH,
+		rootDir: resolve(
+			cliArgs.rootDir ??
+			cliArgs['root-dir'] ??
+			fileConfigs.rootDir ??
+			process.cwd()
+		),
 	};
 }
 
