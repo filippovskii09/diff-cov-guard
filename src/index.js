@@ -1,5 +1,6 @@
 import { getEnvironment } from "./environment.js";
 import { fetchBranch, getChangedFiles, getRemoteDefaultBranch } from "./git.js";
+import { loadConfig } from "./config.js";
 
 /**
  * Runs the coverage guard workflow for the current repository context.
@@ -20,11 +21,12 @@ export async function run(args) {
 	const env = getEnvironment();
 	const base = args.base || env.baseBranch || getRemoteDefaultBranch();
 
-  const config = {
-    threshold: Number(args.threshold),
-    lcovPath: args.lcov,
-    baseBranch: base,
-  };
+	const config = loadConfig({
+		...args,
+		baseBranch: base,
+	});
+
+	console.log('🛠  Resolved Config:', config);
 
 	console.log(`Environment: ${env.type.toUpperCase()}`);
 

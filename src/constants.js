@@ -32,3 +32,9 @@ export const ARGS_OPTIONS = {
 		short: 'v',
 	},
 };
+
+export const CONFIG_FILES = {
+	RC_CONFIG_FILE: '.diffcovguardrc',
+	PACKAGE_JSON_FILE: 'package.json',
+	PACKAGE_CONFIG_KEY: 'diffCovGuard',
+};
