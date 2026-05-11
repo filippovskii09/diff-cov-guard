@@ -9,8 +9,8 @@ import { ENV_TYPES } from "./constants.js"
  *
  * @returns {{type: string, isCI: boolean, baseBranch: string|null, currentBranch: string|null}} Environment metadata for branch selection.
  */
-export const getEnvironment  = () => {
-	if(process.env.GITHUB_ACTIONS) {
+export const getEnvironment = () => {
+	if (process.env.GITHUB_ACTIONS) {
 		return {
 			type: ENV_TYPES.GITHUB,
 			isCI: true,
@@ -18,8 +18,8 @@ export const getEnvironment  = () => {
 			currentBranch: process.env.GITHUB_REF_NAME,
 		}
 	}
-	
-	if(process.env.GITLAB_CI) {
+
+	if (process.env.GITLAB_CI) {
 		return {
 			type: ENV_TYPES.GITLAB,
 			isCI: true,

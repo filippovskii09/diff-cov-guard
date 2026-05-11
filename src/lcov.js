@@ -68,7 +68,7 @@ function finalizeRecord(records, currentRecord) {
  */
 export function parseLcov(lcovPath, options = {}) {
 	if (!existsSync(lcovPath)) {
-		throw new Error(`LCOV report not found at ${lcovPath}`);
+		throw new Error(`LCOV file not found: ${lcovPath}`);
 	}
 
 	const content = readFileSync(lcovPath, 'utf8');

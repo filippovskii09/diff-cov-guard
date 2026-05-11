@@ -41,3 +41,14 @@ export const CONFIG_FILES = {
 	PACKAGE_JSON_FILE: 'package.json',
 	PACKAGE_CONFIG_KEY: 'diffCovGuard',
 };
+
+export const EXIT_CODES = {
+	SUCCESS: 0,
+	FAILURE: 1,
+};
+
+export const CONSOLE_COLORS = {
+	GREEN: '\u001b[32m',
+	RED: '\u001b[31m',
+	RESET: '\u001b[0m',
+};

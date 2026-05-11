@@ -1,46 +1,97 @@
 import { calculateDiffCoverage, passesThreshold } from './coverage.js';
+import { EXIT_CODES, CONSOLE_COLORS } from './constants.js';
 import { getEnvironment } from './environment.js';
 import { fetchBranch, getChangedFiles, getChangedLines, getRemoteDefaultBranch } from './git.js';
 import { loadConfig } from './config.js';
 import { parseLcov } from './lcov.js';
 
+
+function colorize(color, message) {
+	return `${color}${message}${CONSOLE_COLORS.RESET}`;
+}
+
+function formatPercentage(percentage) {
+	return Number(percentage.toFixed(2));
+}
+
 /**
- * Prints the resolved coverage context and calculated diff coverage totals.
+ * Converts per-file coverage results into a CI-friendly table shape.
  *
- * This is presentation-only; it should not perform coverage math or change the
- * pass/fail decision.
- *
- * @param {object} config - Resolved CLI and file configuration.
- * @param {string[]} changedFiles - Git-relative changed files.
- * @param {Map<string, object>} coverageByFile - Parsed LCOV records by file.
- * @param {{executableLines: number, coveredLines: number, percentage: number}} diffCoverage - Calculated diff coverage result.
- * @returns {void}
+ * @param {{files: object[]}} diffCoverage - Calculated diff coverage result.
+ * @returns {object[]} Rows for `console.table()`.
  */
-function printCoverageSummary(config, changedFiles, coverageByFile, diffCoverage) {
-	console.table({
-		'Threshold (%)': config.threshold,
-		'LCOV Path': config.lcovPath,
-		'LCOV Root Dir': config.rootDir,
-		'Base Branch': config.baseBranch,
-		'Changed Files': changedFiles.length,
-		'LCOV Files': coverageByFile.size,
-		'Executable Changed Lines': diffCoverage.executableLines,
-		'Covered Changed Lines': diffCoverage.coveredLines,
-		'Diff Coverage (%)': diffCoverage.percentage.toFixed(2),
+export function createReportRows(diffCoverage) {
+	return diffCoverage.files.map((file) => {
+		const executableLineCount = file.executableLines.length;
+		const percentage = executableLineCount === 0
+			? 100
+			: (file.coveredLines.length / executableLineCount) * 100;
+
+		return {
+			File: file.filePath,
+			'Changed Lines': file.changedLines.length,
+			'Covered Lines': file.coveredLines.length,
+			Percentage: executableLineCount === 0
+				? '100% (No executable changes)'
+				: `${formatPercentage(percentage)}%`,
+		};
 	});
 }
 
 /**
- * Prints the list of Git-relative files included in the diff coverage check.
+ * Returns files that contain uncovered executable changed lines.
  *
- * @param {string[]} changedFiles - Git-relative changed file paths.
- * @returns {void}
+ * @param {{files: object[]}} diffCoverage - Calculated diff coverage result.
+ * @returns {object[]} Failing file results.
  */
-function printChangedFiles(changedFiles) {
-	console.log('\nChanged files:');
-	changedFiles.forEach((file) => {
-		console.log(` - ${file}`);
-	});
+export function getFailingFiles(diffCoverage) {
+	return diffCoverage.files.filter((file) => file.uncoveredLines.length > 0);
+}
+
+function printFailureDetails(diffCoverage) {
+	const failingFiles = getFailingFiles(diffCoverage);
+
+	if (failingFiles.length === 0) {
+		return;
+	}
+
+	console.error('\nFiles below diff coverage requirements:');
+	for (const file of failingFiles) {
+		console.error(` - ${file.filePath}: uncovered changed lines ${file.uncoveredLines.join(', ')}`);
+	}
+}
+
+function printFinalReport(config, diffCoverage) {
+	console.table(createReportRows(diffCoverage));
+
+	if (diffCoverage.executableLines === 0) {
+		console.log(colorize(CONSOLE_COLORS.GREEN, '✔ Success: Diff Coverage is 100% (No executable changes).'));
+		return;
+	}
+
+	if (passesThreshold(diffCoverage, config.threshold)) {
+		console.log(colorize(
+			CONSOLE_COLORS.GREEN,
+			`✔ Success: Diff Coverage is ${formatPercentage(diffCoverage.percentage)}%, minimum required is ${config.threshold}%.`
+		));
+		return;
+	}
+
+	printFailureDetails(diffCoverage);
+	console.error(colorize(
+		CONSOLE_COLORS.RED,
+		`✖ Fail: Diff Coverage is ${formatPercentage(diffCoverage.percentage)}%, but minimum required is ${config.threshold}%.`
+	));
+}
+
+export function getExitCode(diffCoverage, threshold) {
+	return passesThreshold(diffCoverage, threshold)
+		? EXIT_CODES.SUCCESS
+		: EXIT_CODES.FAILURE;
+}
+
+function exitWith(lifecycle, code) {
+	lifecycle.exit(code);
 }
 
 /**
@@ -54,49 +105,49 @@ function printChangedFiles(changedFiles) {
  * @param {string} [args.base] - Explicit base branch override.
  * @param {string|number} args.threshold - Required coverage threshold percentage.
  * @param {string} args.lcov - Path to the LCOV report used by the check.
- * @returns {Promise<void>} Resolves after reporting the comparison context.
+ * @param {object} [lifecycle=process] - Process-like lifecycle dependency.
+ * @returns {Promise<void>} Resolves only when lifecycle exit is stubbed by tests.
  */
-export async function run(args) {
-	console.log('Starting coverage check...');
+export async function run(args, lifecycle = process) {
+	try {
+		console.log('Starting coverage check...');
 
-	const env = getEnvironment();
-	const base = args.base || env.baseBranch || getRemoteDefaultBranch();
+		const env = getEnvironment();
+		const base = args.base || env.baseBranch || getRemoteDefaultBranch();
 
-	const config = loadConfig({
-		...args,
-		baseBranch: base,
-	});
+		const config = loadConfig({
+			...args,
+			baseBranch: base,
+		});
 
-	console.log('🛠  Resolved Config:', config);
+		console.log('🛠  Resolved Config:', config);
 
-	console.log(`Environment: ${env.type.toUpperCase()}`);
+		console.log(`Environment: ${env.type.toUpperCase()}`);
 
-	if(env.isCI) {
-		fetchBranch(config.baseBranch);
+		if (env.isCI) {
+			fetchBranch(config.baseBranch);
+		}
+
+		const changedFiles = getChangedFiles(config.baseBranch);
+
+		if (changedFiles.length === 0) {
+			console.log(colorize(CONSOLE_COLORS.GREEN, '✔ Success: No changed files found.'));
+			exitWith(lifecycle, EXIT_CODES.SUCCESS);
+			return;
+		}
+
+		const changedLinesByFile = getChangedLines(config.baseBranch, changedFiles);
+		const coverageByFile = parseLcov(config.lcovPath, {
+			repoRoot: process.cwd(),
+			rootDir: config.rootDir,
+		});
+		const diffCoverage = calculateDiffCoverage(changedLinesByFile, coverageByFile);
+
+		printFinalReport(config, diffCoverage);
+
+		exitWith(lifecycle, getExitCode(diffCoverage, config.threshold));
+	} catch (error) {
+		console.error(`Error: ${error.message}`);
+		exitWith(lifecycle, EXIT_CODES.FAILURE);
 	}
-
-	const changedFiles = getChangedFiles(config.baseBranch);
-
-	if (changedFiles.length === 0) {
-		console.log('No changed files found.');
-		return;
-	}
-
-	const changedLinesByFile = getChangedLines(config.baseBranch, changedFiles);
-	const coverageByFile = parseLcov(config.lcovPath, {
-		repoRoot: process.cwd(),
-		rootDir: config.rootDir,
-	});
-	const diffCoverage = calculateDiffCoverage(changedLinesByFile, coverageByFile);
-
-	printCoverageSummary(config, changedFiles, coverageByFile, diffCoverage);
-	printChangedFiles(changedFiles);
-
-	if (!passesThreshold(diffCoverage, config.threshold)) {
-		throw new Error(
-			`Diff coverage ${diffCoverage.percentage.toFixed(2)}% is below threshold ${config.threshold}%`
-		);
-	}
-
-	console.log(`✅ Diff coverage ${diffCoverage.percentage.toFixed(2)}% meets the ${config.threshold}% threshold.`);
 }

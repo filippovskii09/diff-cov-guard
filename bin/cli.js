@@ -6,10 +6,10 @@ import { ARGS_OPTIONS, DEFAULT_BASE_BRANCH } from '../src/constants.js';
 import { run } from '../src/index.js';
 
 try {
-  const { values } = parseArgs({ options: ARGS_OPTIONS, allowPositionals: true });
+	const { values } = parseArgs({ options: ARGS_OPTIONS, allowPositionals: true });
 
-  if (values.help) {
-    console.log(`
+	if (values.help) {
+		console.log(`
 🛡️ diff-cov-guard — A CLI tool for monitoring code coverage.
 
 Usage:
@@ -23,18 +23,18 @@ Options:
   -h, --help                Show help
   -v, --version             Show version
     `);
-    process.exit(0);
-  }
+		process.exit(0);
+	}
 
-  if (values.version) {
-    console.log('diff-cov-guard v0.1.0');
-    process.exit(0);
-  }
+	if (values.version) {
+		console.log('diff-cov-guard v0.1.0');
+		process.exit(0);
+	}
 
 	await run(values);
 
 } catch (error) {
-  console.error(`❌ Error: ${error.message}`);
-  console.log('Use --help for available options.');
-  process.exit(1);
+	console.error(`❌ Error: ${error.message}`);
+	console.log('Use --help for available options.');
+	process.exit(1);
 }

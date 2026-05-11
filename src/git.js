@@ -3,8 +3,8 @@ import { execFileSync, execSync } from 'node:child_process';
 import { DEFAULT_BRANCH } from './constants.js';
 
 const execSyncConfig = {
-  encoding: 'utf8',
-  stdio: ['pipe', 'pipe', 'ignore'],
+	encoding: 'utf8',
+	stdio: ['pipe', 'pipe', 'ignore'],
 }
 
 const GIT_DIFF_FILE_PREFIX = '+++ b/';
@@ -19,36 +19,37 @@ const HUNK_HEADER_PREFIX = '@@';
  * @returns {string} Remote default branch name, or `DEFAULT_BRANCH` as a fallback.
  */
 export function getRemoteDefaultBranch() {
-  try {
-    const command = `git remote show origin | grep 'HEAD branch' | cut -d' ' -f5`;
-    const branch = execSync(command, execSyncConfig).trim();
-    return branch || DEFAULT_BRANCH;
-  } catch (error) {
-    return DEFAULT_BRANCH;
-  }
+	try {
+		const command = `git remote show origin | grep 'HEAD branch' | cut -d' ' -f5`;
+		const branch = execSync(command, execSyncConfig).trim();
+		return branch || DEFAULT_BRANCH;
+	} catch (error) {
+		return DEFAULT_BRANCH;
+	}
 }
 
 /**
  * Fetches the requested base branch from `origin` for CI diff comparisons.
  *
  * If the fetch fails, attempts to update `origin` HEAD to the same branch
- * before warning. Failures are intentionally non-fatal so the caller can still
- * continue with the local repository state.
+ * before failing. CI runs should not continue from stale or incomplete Git
+ * state because that can produce false-positive coverage checks.
  *
  * @param {string} branch - Branch name expected to exist on the `origin` remote.
  */
 export const fetchBranch = (branch) => {
 	const execSyncOptions = {
-    stdio: 'ignore'
-  }
-  try {
-    console.log(`Fetching ${branch}`);
-    execSync(`git fetch origin ${branch}:${branch} --quiet`, execSyncOptions);
-  } catch (error) {
+		stdio: 'ignore'
+	}
+	try {
+		console.log(`Fetching ${branch}`);
+		execSync(`git fetch origin ${branch}:${branch} --quiet`, execSyncOptions);
+	} catch (error) {
 		try {
 			execSync(`git remote set-head origin ${branch}`, execSyncOptions);
+			execSync(`git fetch origin ${branch}:${branch} --quiet`, execSyncOptions);
 		} catch (error) {
-		  console.warn(`Failed to fetch ${branch}`);
+			throw new Error(`Failed to fetch ${branch}`);
 		}
 	}
 };
@@ -69,8 +70,7 @@ export const getChangedFiles = (baseBranch) => {
 
 		return output ? output.split('\n') : [];
 	} catch (error) {
-		console.warn(`Failed to get changed files: ${error.message}`);
-		return [];
+		throw new Error(`Failed to get changed files: ${error.message}`);
 	}
 };
 
@@ -179,7 +179,7 @@ export function getChangedLines(baseBranch, changedFiles) {
 		);
 		parseChangedLinesDiff(output, changedLinesByFile);
 	} catch (error) {
-		console.warn(`Failed to get changed lines: ${error.message}`);
+		throw new Error(`Failed to get changed lines: ${error.message}`);
 	}
 
 	return changedLinesByFile;
