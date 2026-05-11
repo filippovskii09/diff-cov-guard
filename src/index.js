@@ -1,7 +1,47 @@
-import { getEnvironment } from "./environment.js";
-import { fetchBranch, getChangedFiles, getRemoteDefaultBranch } from "./git.js";
-import { loadConfig } from "./config.js";
-import { parseLcov } from "./lcov.js";
+import { calculateDiffCoverage, passesThreshold } from './coverage.js';
+import { getEnvironment } from './environment.js';
+import { fetchBranch, getChangedFiles, getChangedLines, getRemoteDefaultBranch } from './git.js';
+import { loadConfig } from './config.js';
+import { parseLcov } from './lcov.js';
+
+/**
+ * Prints the resolved coverage context and calculated diff coverage totals.
+ *
+ * This is presentation-only; it should not perform coverage math or change the
+ * pass/fail decision.
+ *
+ * @param {object} config - Resolved CLI and file configuration.
+ * @param {string[]} changedFiles - Git-relative changed files.
+ * @param {Map<string, object>} coverageByFile - Parsed LCOV records by file.
+ * @param {{executableLines: number, coveredLines: number, percentage: number}} diffCoverage - Calculated diff coverage result.
+ * @returns {void}
+ */
+function printCoverageSummary(config, changedFiles, coverageByFile, diffCoverage) {
+	console.table({
+		'Threshold (%)': config.threshold,
+		'LCOV Path': config.lcovPath,
+		'LCOV Root Dir': config.rootDir,
+		'Base Branch': config.baseBranch,
+		'Changed Files': changedFiles.length,
+		'LCOV Files': coverageByFile.size,
+		'Executable Changed Lines': diffCoverage.executableLines,
+		'Covered Changed Lines': diffCoverage.coveredLines,
+		'Diff Coverage (%)': diffCoverage.percentage.toFixed(2),
+	});
+}
+
+/**
+ * Prints the list of Git-relative files included in the diff coverage check.
+ *
+ * @param {string[]} changedFiles - Git-relative changed file paths.
+ * @returns {void}
+ */
+function printChangedFiles(changedFiles) {
+	console.log('\nChanged files:');
+	changedFiles.forEach((file) => {
+		console.log(` - ${file}`);
+	});
+}
 
 /**
  * Runs the coverage guard workflow for the current repository context.
@@ -36,27 +76,27 @@ export async function run(args) {
 	}
 
 	const changedFiles = getChangedFiles(config.baseBranch);
-	const coverageByFile = parseLcov(config.lcovPath, {
-		repoRoot: process.cwd(),
-		rootDir: config.rootDir,
-	});
 
-  console.table({
-    'Threshold (%)': config.threshold,
-    'LCOV Path': config.lcovPath,
-    'LCOV Root Dir': config.rootDir,
-    'Base Branch': config.baseBranch,
-		'Changed Files': changedFiles.length,
-		'LCOV Files': coverageByFile.size,
-  });
-
-	if(changedFiles.length === 0) {
+	if (changedFiles.length === 0) {
 		console.log('No changed files found.');
 		return;
 	}
 
-	console.log('\nChanged files:');
-	changedFiles.forEach((file) => {
-		console.log(` - ${file}`);
+	const changedLinesByFile = getChangedLines(config.baseBranch, changedFiles);
+	const coverageByFile = parseLcov(config.lcovPath, {
+		repoRoot: process.cwd(),
+		rootDir: config.rootDir,
 	});
+	const diffCoverage = calculateDiffCoverage(changedLinesByFile, coverageByFile);
+
+	printCoverageSummary(config, changedFiles, coverageByFile, diffCoverage);
+	printChangedFiles(changedFiles);
+
+	if (!passesThreshold(diffCoverage, config.threshold)) {
+		throw new Error(
+			`Diff coverage ${diffCoverage.percentage.toFixed(2)}% is below threshold ${config.threshold}%`
+		);
+	}
+
+	console.log(`✅ Diff coverage ${diffCoverage.percentage.toFixed(2)}% meets the ${config.threshold}% threshold.`);
 }
