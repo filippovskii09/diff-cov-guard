@@ -1,16 +1,33 @@
 {
 	"name": "diff-cov-guard",
 	"version": "1.0.0",
-	"description": "",
-	"main": "index.js",
+	"description": "CLI guard that enforces diff coverage thresholds from LCOV reports.",
+	"type": "module",
+	"main": "./src/index.js",
+	"exports": {
+		".": "./src/index.js"
+	},
+	"files": [
+		"bin/",
+		"src/"
+	],
 	"bin": {
 		"diff-cov-guard": "bin/cli.js"
 	},
 	"scripts": {
 		"test": "node --test"
 	},
-	"keywords": [],
-	"author": "",
-	"license": "ISC",
-	"type": "module"
+	"keywords": [
+		"coverage",
+		"diff-coverage",
+		"lcov",
+		"ci",
+		"cli"
+	],
+	"author": "Artur Filippovskii",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/filippovskii09/diff-cov-guard"
+	},
+	"license": "ISC"
 }
