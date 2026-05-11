@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
 function toPosixPath(filePath) {
@@ -43,11 +43,21 @@ function createCoverageRecord(filePath) {
 
 function parseLineCoverage(line) {
 	const [, payload] = line.split(':');
+	if (!payload) {
+		throw new Error(`Invalid LCOV format: malformed DA record "${line}"`);
+	}
+
 	const [lineNumber, hitCount] = payload.split(',');
+	const parsedLineNumber = Number(lineNumber);
+	const parsedHitCount = Number(hitCount);
+
+	if (!Number.isInteger(parsedLineNumber) || !Number.isFinite(parsedHitCount)) {
+		throw new Error(`Invalid LCOV format: malformed DA record "${line}"`);
+	}
 
 	return {
-		lineNumber: Number(lineNumber),
-		hitCount: Number(hitCount),
+		lineNumber: parsedLineNumber,
+		hitCount: parsedHitCount,
 	};
 }
 
@@ -55,6 +65,14 @@ function finalizeRecord(records, currentRecord) {
 	if (currentRecord) {
 		records.set(currentRecord.path, currentRecord);
 	}
+}
+
+export function isLcovEmptyOrMissing(lcovPath) {
+	if (!existsSync(lcovPath)) {
+		return true;
+	}
+
+	return statSync(lcovPath).size === 0 || readFileSync(lcovPath, 'utf8').trim().length === 0;
 }
 
 /**
@@ -80,6 +98,10 @@ export function parseLcov(lcovPath, options = {}) {
 			finalizeRecord(records, currentRecord);
 
 			const sourcePath = line.slice(3);
+			if (sourcePath.trim().length === 0) {
+				throw new Error('Invalid LCOV format: empty SF record');
+			}
+
 			currentRecord = createCoverageRecord(normalizePath(sourcePath, options));
 			continue;
 		}
@@ -97,6 +119,10 @@ export function parseLcov(lcovPath, options = {}) {
 	}
 
 	finalizeRecord(records, currentRecord);
+
+	if (records.size === 0) {
+		throw new Error('Invalid LCOV format: no records found');
+	}
 
 	return records;
 }

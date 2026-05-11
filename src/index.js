@@ -1,9 +1,11 @@
+import { extname } from 'node:path';
+
 import { calculateDiffCoverage, passesThreshold } from './coverage.js';
-import { EXIT_CODES, CONSOLE_COLORS } from './constants.js';
+import { COVERAGE_SOURCE_EXTENSIONS, EXIT_CODES, CONSOLE_COLORS } from './constants.js';
 import { getEnvironment } from './environment.js';
 import { fetchBranch, getChangedFiles, getChangedLines, getRemoteDefaultBranch } from './git.js';
 import { loadConfig } from './config.js';
-import { parseLcov } from './lcov.js';
+import { isLcovEmptyOrMissing, parseLcov } from './lcov.js';
 
 
 function colorize(color, message) {
@@ -12,6 +14,24 @@ function colorize(color, message) {
 
 function formatPercentage(percentage) {
 	return Number(percentage.toFixed(2));
+}
+
+function isCoverageSourceFile(filePath) {
+	return COVERAGE_SOURCE_EXTENSIONS.has(extname(filePath).toLowerCase());
+}
+
+export function filterCoverageSourceFiles(changedFiles) {
+	return changedFiles.filter(isCoverageSourceFile);
+}
+
+export function hasChangedLines(changedLinesByFile) {
+	for (const changedLines of changedLinesByFile.values()) {
+		if (changedLines.size > 0) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 /**
@@ -129,6 +149,7 @@ export async function run(args, lifecycle = process) {
 		}
 
 		const changedFiles = getChangedFiles(config.baseBranch);
+		const sourceChangedFiles = filterCoverageSourceFiles(changedFiles);
 
 		if (changedFiles.length === 0) {
 			console.log(colorize(CONSOLE_COLORS.GREEN, '✔ Success: No changed files found.'));
@@ -136,7 +157,26 @@ export async function run(args, lifecycle = process) {
 			return;
 		}
 
-		const changedLinesByFile = getChangedLines(config.baseBranch, changedFiles);
+		if (sourceChangedFiles.length === 0) {
+			console.log('ℹ Nothing to check: only non-source files changed.');
+			exitWith(lifecycle, EXIT_CODES.SUCCESS);
+			return;
+		}
+
+		const changedLinesByFile = getChangedLines(config.baseBranch, sourceChangedFiles);
+
+		if (!hasChangedLines(changedLinesByFile)) {
+			console.log('ℹ No new executable lines found in this PR. Skipping.');
+			exitWith(lifecycle, EXIT_CODES.SUCCESS);
+			return;
+		}
+
+		if (isLcovEmptyOrMissing(config.lcovPath)) {
+			console.warn('WARN: LCOV file is empty or missing. Skipping coverage check.');
+			exitWith(lifecycle, config.failOnEmpty ? EXIT_CODES.FAILURE : EXIT_CODES.SUCCESS);
+			return;
+		}
+
 		const coverageByFile = parseLcov(config.lcovPath, {
 			repoRoot: process.cwd(),
 			rootDir: config.rootDir,

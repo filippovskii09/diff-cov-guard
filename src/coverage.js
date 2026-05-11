@@ -1,8 +1,9 @@
 /**
  * Builds a per-file diff coverage summary from changed lines and LCOV data.
  *
- * A changed line is executable only when LCOV has a `DA:` entry for it. Lines
- * missing from LCOV are ignored as non-executable for diff coverage purposes.
+ * A changed line is executable when LCOV has a `DA:` entry for it. If a source
+ * file is missing from LCOV entirely, all changed lines are treated as
+ * uncovered so newly added files cannot silently pass with 0% visibility.
  *
  * @param {string} filePath - Git-relative file path.
  * @param {Set<number>} changedLines - Line numbers changed in the current diff.
@@ -15,8 +16,19 @@ function createFileResult(filePath, changedLines, coverageRecord) {
 	const uncoveredLines = [];
 	const sortedChangedLines = [...changedLines].sort((left, right) => left - right);
 
+	if (!coverageRecord) {
+		return {
+			filePath,
+			changedLines: sortedChangedLines,
+			executableLines: sortedChangedLines,
+			coveredLines,
+			uncoveredLines: sortedChangedLines,
+			hasCoverage: false,
+		};
+	}
+
 	for (const lineNumber of sortedChangedLines) {
-		if (!coverageRecord?.lines.has(lineNumber)) {
+		if (!coverageRecord.lines.has(lineNumber)) {
 			continue;
 		}
 

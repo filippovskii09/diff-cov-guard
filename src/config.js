@@ -49,6 +49,12 @@ function resolveConfig(cliArgs, fileConfigs) {
 			fileConfigs.rootDir ??
 			process.cwd()
 		),
+		failOnEmpty: Boolean(
+			cliArgs.failOnEmpty ??
+			cliArgs['fail-on-empty'] ??
+			fileConfigs.failOnEmpty ??
+			false
+		),
 	};
 }
 

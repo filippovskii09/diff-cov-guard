@@ -26,6 +26,9 @@ export const ARGS_OPTIONS = {
 	'root-dir': {
 		type: 'string',
 	},
+	'fail-on-empty': {
+		type: 'boolean',
+	},
 	help: {
 		type: 'boolean',
 		short: 'h',
@@ -52,3 +55,12 @@ export const CONSOLE_COLORS = {
 	RED: '\u001b[31m',
 	RESET: '\u001b[0m',
 };
+
+export const COVERAGE_SOURCE_EXTENSIONS = new Set([
+	'.cjs',
+	'.js',
+	'.jsx',
+	'.mjs',
+	'.ts',
+	'.tsx',
+]);
