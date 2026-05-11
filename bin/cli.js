@@ -3,9 +3,17 @@
 import { parseArgs } from 'node:util';
 
 import { ARGS_OPTIONS, DEFAULT_BASE_BRANCH } from '../src/constants.js';
+import { runInit } from '../src/init.js';
 import { run } from '../src/index.js';
 
 try {
+	const [command] = process.argv.slice(2);
+
+	if (command === 'init') {
+		await runInit();
+		process.exit(0);
+	}
+
 	const { values } = parseArgs({ options: ARGS_OPTIONS, allowPositionals: true });
 
 	if (values.help) {
@@ -14,6 +22,7 @@ try {
 
 Usage:
   npx diff-cov-guard [options]
+  npx diff-cov-guard init
 
 Options:
   -t, --threshold <number>  Code coverage threshold in % (default: ${ARGS_OPTIONS.threshold.default})
