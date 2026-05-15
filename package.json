@@ -1,44 +1,46 @@
 {
-	"name": "diff-cov-guard",
-	"version": "1.0.0",
-	"description": "CLI guard that enforces diff coverage thresholds from LCOV reports.",
-	"type": "module",
-	"main": "./src/index.js",
-	"exports": {
-		".": "./src/index.js"
-	},
-	"files": [
-		"bin/",
-		"src/"
-	],
-	"bin": {
-		"diff-cov-guard": "bin/cli.js"
-	},
-	"scripts": {
-		"lint": "eslint . --max-warnings=0",
-		"lint:fix": "eslint . --fix",
-		"test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage=false",
-		"test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
-	},
-	"keywords": [
-		"coverage",
-		"diff-coverage",
-		"lcov",
-		"ci",
-		"cli"
-	],
-	"author": "Artur Filippovskii",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/filippovskii09/diff-cov-guard"
-	},
-	"license": "ISC",
-	"devDependencies": {
-		"@eslint/js": "^10.0.1",
-		"eslint": "^10.4.0",
-		"eslint-config-prettier": "^10.1.8",
-		"eslint-plugin-prettier": "^5.5.5",
-		"jest": "30.4.2",
-		"prettier": "^3.8.3"
-	}
+  "name": "diff-cov-guard",
+  "version": "1.0.0",
+  "description": "CLI guard that enforces diff coverage thresholds from LCOV reports.",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "bin/",
+    "src/"
+  ],
+  "bin": {
+    "diff-cov-guard": "bin/cli.js"
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage=false",
+    "test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
+  },
+  "keywords": [
+    "coverage",
+    "diff-coverage",
+    "lcov",
+    "ci",
+    "cli"
+  ],
+  "author": "Artur Filippovskii",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/filippovskii09/diff-cov-guard"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.4.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "jest": "30.4.2",
+    "prettier": "^3.8.3"
+  }
 }

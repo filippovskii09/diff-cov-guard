@@ -7,17 +7,17 @@ import { runInit } from '../src/init.js';
 import { run } from '../src/index.js';
 
 try {
-	const [command] = process.argv.slice(2);
+  const [command] = process.argv.slice(2);
 
-	if (command === 'init') {
-		await runInit();
-		process.exit(0);
-	}
+  if (command === 'init') {
+    await runInit();
+    process.exit(0);
+  }
 
-	const { values } = parseArgs({ options: ARGS_OPTIONS, allowPositionals: true });
+  const { values } = parseArgs({ options: ARGS_OPTIONS, allowPositionals: true });
 
-	if (values.help) {
-		console.log(`
+  if (values.help) {
+    console.log(`
 🛡️ diff-cov-guard — A CLI tool for monitoring code coverage.
 
 Usage:
@@ -33,17 +33,17 @@ Options:
   -h, --help                Show help
   -v, --version             Show version
     `);
-		process.exit(0);
-	}
+    process.exit(0);
+  }
 
-	if (values.version) {
-		console.log('diff-cov-guard v0.1.0');
-		process.exit(0);
-	}
+  if (values.version) {
+    console.log('diff-cov-guard v0.1.0');
+    process.exit(0);
+  }
 
-	await run(values);
+  await run(values);
 } catch (error) {
-	console.error(`❌ Error: ${error.message}`);
-	console.log('Use --help for available options.');
-	process.exit(1);
+  console.error(`❌ Error: ${error.message}`);
+  console.log('Use --help for available options.');
+  process.exit(1);
 }

@@ -4,11 +4,11 @@ import { isAbsolute, relative, resolve, sep } from 'node:path';
 const LCOV_SOURCE_PREFIX_LENGTH = 3;
 
 function toPosixPath(filePath) {
-	return filePath.split(sep).join('/').replaceAll('\\', '/');
+  return filePath.split(sep).join('/').replaceAll('\\', '/');
 }
 
 function trimCurrentDirPrefix(filePath) {
-	return filePath.replace(/^\.\//, '');
+  return filePath.replace(/^\.\//, '');
 }
 
 /**
@@ -25,56 +25,54 @@ function trimCurrentDirPrefix(filePath) {
  * @returns {string} Repository-relative POSIX-style path.
  */
 export function normalizePath(sourcePath, { repoRoot = process.cwd(), rootDir = repoRoot } = {}) {
-	const cleanSourcePath = sourcePath.trim();
-	const absoluteRepoRoot = resolve(repoRoot);
-	const absoluteRootDir = resolve(rootDir);
+  const cleanSourcePath = sourcePath.trim();
+  const absoluteRepoRoot = resolve(repoRoot);
+  const absoluteRootDir = resolve(rootDir);
 
-	const absoluteSourcePath = isAbsolute(cleanSourcePath)
-		? cleanSourcePath
-		: resolve(absoluteRootDir, cleanSourcePath);
+  const absoluteSourcePath = isAbsolute(cleanSourcePath) ? cleanSourcePath : resolve(absoluteRootDir, cleanSourcePath);
 
-	return trimCurrentDirPrefix(toPosixPath(relative(absoluteRepoRoot, absoluteSourcePath)));
+  return trimCurrentDirPrefix(toPosixPath(relative(absoluteRepoRoot, absoluteSourcePath)));
 }
 
 function createCoverageRecord(filePath) {
-	return {
-		path: filePath,
-		lines: new Map(),
-	};
+  return {
+    path: filePath,
+    lines: new Map(),
+  };
 }
 
 function parseLineCoverage(line) {
-	const [, payload] = line.split(':');
-	if (!payload) {
-		throw new Error(`Invalid LCOV format: malformed DA record "${line}"`);
-	}
+  const [, payload] = line.split(':');
+  if (!payload) {
+    throw new Error(`Invalid LCOV format: malformed DA record "${line}"`);
+  }
 
-	const [lineNumber, hitCount] = payload.split(',');
-	const parsedLineNumber = Number(lineNumber);
-	const parsedHitCount = Number(hitCount);
+  const [lineNumber, hitCount] = payload.split(',');
+  const parsedLineNumber = Number(lineNumber);
+  const parsedHitCount = Number(hitCount);
 
-	if (!Number.isInteger(parsedLineNumber) || !Number.isFinite(parsedHitCount)) {
-		throw new Error(`Invalid LCOV format: malformed DA record "${line}"`);
-	}
+  if (!Number.isInteger(parsedLineNumber) || !Number.isFinite(parsedHitCount)) {
+    throw new Error(`Invalid LCOV format: malformed DA record "${line}"`);
+  }
 
-	return {
-		lineNumber: parsedLineNumber,
-		hitCount: parsedHitCount,
-	};
+  return {
+    lineNumber: parsedLineNumber,
+    hitCount: parsedHitCount,
+  };
 }
 
 function finalizeRecord(records, currentRecord) {
-	if (currentRecord) {
-		records.set(currentRecord.path, currentRecord);
-	}
+  if (currentRecord) {
+    records.set(currentRecord.path, currentRecord);
+  }
 }
 
 export function isLcovEmptyOrMissing(lcovPath) {
-	if (!existsSync(lcovPath)) {
-		return true;
-	}
+  if (!existsSync(lcovPath)) {
+    return true;
+  }
 
-	return statSync(lcovPath).size === 0 || readFileSync(lcovPath, 'utf8').trim().length === 0;
+  return statSync(lcovPath).size === 0 || readFileSync(lcovPath, 'utf8').trim().length === 0;
 }
 
 /**
@@ -87,44 +85,44 @@ export function isLcovEmptyOrMissing(lcovPath) {
  * @returns {Map<string, {path: string, lines: Map<number, number>}>}
  */
 export function parseLcov(lcovPath, options = {}) {
-	if (!existsSync(lcovPath)) {
-		throw new Error(`LCOV file not found: ${lcovPath}`);
-	}
+  if (!existsSync(lcovPath)) {
+    throw new Error(`LCOV file not found: ${lcovPath}`);
+  }
 
-	const content = readFileSync(lcovPath, 'utf8');
-	const records = new Map();
-	let currentRecord = null;
+  const content = readFileSync(lcovPath, 'utf8');
+  const records = new Map();
+  let currentRecord = null;
 
-	for (const line of content.split(/\r?\n/)) {
-		if (line.startsWith('SF:')) {
-			finalizeRecord(records, currentRecord);
+  for (const line of content.split(/\r?\n/)) {
+    if (line.startsWith('SF:')) {
+      finalizeRecord(records, currentRecord);
 
-			const sourcePath = line.slice(LCOV_SOURCE_PREFIX_LENGTH);
-			if (sourcePath.trim().length === 0) {
-				throw new Error('Invalid LCOV format: empty SF record');
-			}
+      const sourcePath = line.slice(LCOV_SOURCE_PREFIX_LENGTH);
+      if (sourcePath.trim().length === 0) {
+        throw new Error('Invalid LCOV format: empty SF record');
+      }
 
-			currentRecord = createCoverageRecord(normalizePath(sourcePath, options));
-			continue;
-		}
+      currentRecord = createCoverageRecord(normalizePath(sourcePath, options));
+      continue;
+    }
 
-		if (line.startsWith('DA:') && currentRecord) {
-			const { lineNumber, hitCount } = parseLineCoverage(line);
-			currentRecord.lines.set(lineNumber, hitCount);
-			continue;
-		}
+    if (line.startsWith('DA:') && currentRecord) {
+      const { lineNumber, hitCount } = parseLineCoverage(line);
+      currentRecord.lines.set(lineNumber, hitCount);
+      continue;
+    }
 
-		if (line === 'end_of_record') {
-			finalizeRecord(records, currentRecord);
-			currentRecord = null;
-		}
-	}
+    if (line === 'end_of_record') {
+      finalizeRecord(records, currentRecord);
+      currentRecord = null;
+    }
+  }
 
-	finalizeRecord(records, currentRecord);
+  finalizeRecord(records, currentRecord);
 
-	if (records.size === 0) {
-		throw new Error('Invalid LCOV format: no records found');
-	}
+  if (records.size === 0) {
+    throw new Error('Invalid LCOV format: no records found');
+  }
 
-	return records;
+  return records;
 }

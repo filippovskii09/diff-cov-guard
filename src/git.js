@@ -3,8 +3,8 @@ import { execFileSync, execSync } from 'node:child_process';
 import { DEFAULT_BRANCH } from './constants.js';
 
 const execSyncConfig = {
-	encoding: 'utf8',
-	stdio: ['pipe', 'pipe', 'ignore'],
+  encoding: 'utf8',
+  stdio: ['pipe', 'pipe', 'ignore'],
 };
 
 const GIT_DIFF_FILE_PREFIX = '+++ b/';
@@ -19,13 +19,13 @@ const HUNK_HEADER_PREFIX = '@@';
  * @returns {string} Remote default branch name, or `DEFAULT_BRANCH` as a fallback.
  */
 export function getRemoteDefaultBranch() {
-	try {
-		const command = `git remote show origin | grep 'HEAD branch' | cut -d' ' -f5`;
-		const branch = execSync(command, execSyncConfig).trim();
-		return branch || DEFAULT_BRANCH;
-	} catch {
-		return DEFAULT_BRANCH;
-	}
+  try {
+    const command = `git remote show origin | grep 'HEAD branch' | cut -d' ' -f5`;
+    const branch = execSync(command, execSyncConfig).trim();
+    return branch || DEFAULT_BRANCH;
+  } catch {
+    return DEFAULT_BRANCH;
+  }
 }
 
 /**
@@ -38,20 +38,20 @@ export function getRemoteDefaultBranch() {
  * @param {string} branch - Branch name expected to exist on the `origin` remote.
  */
 export const fetchBranch = (branch) => {
-	const execSyncOptions = {
-		stdio: 'ignore',
-	};
-	try {
-		console.log(`Fetching ${branch}`);
-		execSync(`git fetch origin ${branch}:${branch} --quiet`, execSyncOptions);
-	} catch {
-		try {
-			execSync(`git remote set-head origin ${branch}`, execSyncOptions);
-			execSync(`git fetch origin ${branch}:${branch} --quiet`, execSyncOptions);
-		} catch (error) {
-			throw new Error(`Failed to fetch ${branch}`, { cause: error });
-		}
-	}
+  const execSyncOptions = {
+    stdio: 'ignore',
+  };
+  try {
+    console.log(`Fetching ${branch}`);
+    execSync(`git fetch origin ${branch}:${branch} --quiet`, execSyncOptions);
+  } catch {
+    try {
+      execSync(`git remote set-head origin ${branch}`, execSyncOptions);
+      execSync(`git fetch origin ${branch}:${branch} --quiet`, execSyncOptions);
+    } catch (error) {
+      throw new Error(`Failed to fetch ${branch}`, { cause: error });
+    }
+  }
 };
 
 /**
@@ -64,14 +64,14 @@ export const fetchBranch = (branch) => {
  * @returns {string[]} Changed file paths relative to the repository root.
  */
 export const getChangedFiles = (baseBranch) => {
-	try {
-		const command = `git diff --name-only ${baseBranch}...HEAD`;
-		const output = execSync(command, { encoding: 'utf8' }).trim();
+  try {
+    const command = `git diff --name-only ${baseBranch}...HEAD`;
+    const output = execSync(command, { encoding: 'utf8' }).trim();
 
-		return output ? output.split('\n') : [];
-	} catch (error) {
-		throw new Error(`Failed to get changed files: ${error.message}`, { cause: error });
-	}
+    return output ? output.split('\n') : [];
+  } catch (error) {
+    throw new Error(`Failed to get changed files: ${error.message}`, { cause: error });
+  }
 };
 
 /**
@@ -84,7 +84,7 @@ export const getChangedFiles = (baseBranch) => {
  * @returns {Map<string, Set<number>>} Empty changed-line sets keyed by file path.
  */
 function createChangedLinesMap(changedFiles) {
-	return new Map(changedFiles.map((file) => [file, new Set()]));
+  return new Map(changedFiles.map((file) => [file, new Set()]));
 }
 
 /**
@@ -97,16 +97,16 @@ function createChangedLinesMap(changedFiles) {
  * @returns {number[]} Changed line numbers from the new-file side of the hunk.
  */
 function parseChangedLineRange(hunkHeader) {
-	const match = hunkHeader.match(/\+(\d+)(?:,(\d+))?/);
+  const match = hunkHeader.match(/\+(\d+)(?:,(\d+))?/);
 
-	if (!match) {
-		return [];
-	}
+  if (!match) {
+    return [];
+  }
 
-	const startLine = Number(match[1]);
-	const lineCount = match[2] === undefined ? 1 : Number(match[2]);
+  const startLine = Number(match[1]);
+  const lineCount = match[2] === undefined ? 1 : Number(match[2]);
 
-	return Array.from({ length: lineCount }, (_, index) => startLine + index);
+  return Array.from({ length: lineCount }, (_, index) => startLine + index);
 }
 
 /**
@@ -118,14 +118,14 @@ function parseChangedLineRange(hunkHeader) {
  * @returns {void}
  */
 function addChangedLines(changedLinesByFile, filePath, hunkHeader) {
-	const changedLines = parseChangedLineRange(hunkHeader);
-	const fileLines = changedLinesByFile.get(filePath);
+  const changedLines = parseChangedLineRange(hunkHeader);
+  const fileLines = changedLinesByFile.get(filePath);
 
-	for (const changedLine of changedLines) {
-		fileLines.add(changedLine);
-	}
+  for (const changedLine of changedLines) {
+    fileLines.add(changedLine);
+  }
 
-	changedLinesByFile.set(filePath, fileLines);
+  changedLinesByFile.set(filePath, fileLines);
 }
 
 /**
@@ -139,19 +139,19 @@ function addChangedLines(changedLinesByFile, filePath, hunkHeader) {
  * @returns {void}
  */
 function parseChangedLinesDiff(output, changedLinesByFile) {
-	let currentFile = null;
+  let currentFile = null;
 
-	for (const line of output.split('\n')) {
-		if (line.startsWith(GIT_DIFF_FILE_PREFIX)) {
-			currentFile = line.slice(GIT_DIFF_FILE_PREFIX.length);
-			changedLinesByFile.set(currentFile, changedLinesByFile.get(currentFile) ?? new Set());
-			continue;
-		}
+  for (const line of output.split('\n')) {
+    if (line.startsWith(GIT_DIFF_FILE_PREFIX)) {
+      currentFile = line.slice(GIT_DIFF_FILE_PREFIX.length);
+      changedLinesByFile.set(currentFile, changedLinesByFile.get(currentFile) ?? new Set());
+      continue;
+    }
 
-		if (line.startsWith(HUNK_HEADER_PREFIX) && currentFile) {
-			addChangedLines(changedLinesByFile, currentFile, line);
-		}
-	}
+    if (line.startsWith(HUNK_HEADER_PREFIX) && currentFile) {
+      addChangedLines(changedLinesByFile, currentFile, line);
+    }
+  }
 }
 
 /**
@@ -165,24 +165,22 @@ function parseChangedLinesDiff(output, changedLinesByFile) {
  * @returns {Map<string, Set<number>>} Changed line numbers by file path.
  */
 export function getChangedLines(baseBranch, changedFiles) {
-	const changedLinesByFile = createChangedLinesMap(changedFiles);
+  const changedLinesByFile = createChangedLinesMap(changedFiles);
 
-	if (changedFiles.length === 0) {
-		return changedLinesByFile;
-	}
+  if (changedFiles.length === 0) {
+    return changedLinesByFile;
+  }
 
-	try {
-		const output = execFileSync(
-			'git',
-			['diff', '--unified=0', `${baseBranch}...HEAD`, '--', ...changedFiles],
-			{ encoding: 'utf8' },
-		);
-		parseChangedLinesDiff(output, changedLinesByFile);
-	} catch (error) {
-		throw new Error(`Failed to get changed lines: ${error.message}`, { cause: error });
-	}
+  try {
+    const output = execFileSync('git', ['diff', '--unified=0', `${baseBranch}...HEAD`, '--', ...changedFiles], {
+      encoding: 'utf8',
+    });
+    parseChangedLinesDiff(output, changedLinesByFile);
+  } catch (error) {
+    throw new Error(`Failed to get changed lines: ${error.message}`, { cause: error });
+  }
 
-	return changedLinesByFile;
+  return changedLinesByFile;
 }
 
 /**
@@ -191,6 +189,6 @@ export function getChangedLines(baseBranch, changedFiles) {
  * @returns {boolean} `true` when `git status --porcelain` reports any entry.
  */
 export function isDirty() {
-	const status = execSync('git status --porcelain', execSyncConfig).trim();
-	return status.length > 0;
+  const status = execSync('git status --porcelain', execSyncConfig).trim();
+  return status.length > 0;
 }

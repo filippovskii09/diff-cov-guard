@@ -26,71 +26,71 @@ export const PERMISSION_ERROR_MESSAGE = 'denied';
 export const PERMISSION_ERROR_CODE = 'EACCES';
 
 export function permissionDeniedError(message = PERMISSION_ERROR_MESSAGE) {
-	const error = new Error(message);
-	error.code = PERMISSION_ERROR_CODE;
-	return error;
+  const error = new Error(message);
+  error.code = PERMISSION_ERROR_CODE;
+  return error;
 }
 
 export function coverageRecord(path = SOURCE_FILE, lines = []) {
-	return { path, lines: new Map(lines) };
+  return { path, lines: new Map(lines) };
 }
 
 export function changedLinesMap(entries) {
-	return new Map(entries.map(([filePath, lines]) => [filePath, new Set(lines)]));
+  return new Map(entries.map(([filePath, lines]) => [filePath, new Set(lines)]));
 }
 
 export function fileResult(overrides = {}) {
-	return {
-		filePath: SOURCE_FILE,
-		changedLines: [1],
-		executableLines: [1],
-		coveredLines: [1],
-		uncoveredLines: [],
-		...overrides,
-	};
+  return {
+    filePath: SOURCE_FILE,
+    changedLines: [1],
+    executableLines: [1],
+    coveredLines: [1],
+    uncoveredLines: [],
+    ...overrides,
+  };
 }
 
 export function diffCoverage(overrides = {}) {
-	return {
-		percentage: FULL_COVERAGE,
-		coveredLines: 1,
-		executableLines: 1,
-		files: [fileResult()],
-		...overrides,
-	};
+  return {
+    percentage: FULL_COVERAGE,
+    coveredLines: 1,
+    executableLines: 1,
+    files: [fileResult()],
+    ...overrides,
+  };
 }
 
 export function runConfig(overrides = {}) {
-	return {
-		threshold: DEFAULT_THRESHOLD,
-		lcovPath: DEFAULT_LCOV_PATH,
-		rootDir: process.cwd(),
-		failOnEmpty: false,
-		...overrides,
-	};
+  return {
+    threshold: DEFAULT_THRESHOLD,
+    lcovPath: DEFAULT_LCOV_PATH,
+    rootDir: process.cwd(),
+    failOnEmpty: false,
+    ...overrides,
+  };
 }
 
 export function localEnvironment(overrides = {}) {
-	return {
-		type: ENV_TYPES.LOCAL,
-		isCI: false,
-		baseBranch: null,
-		...overrides,
-	};
+  return {
+    type: ENV_TYPES.LOCAL,
+    isCI: false,
+    baseBranch: null,
+    ...overrides,
+  };
 }
 
 export function ciEnvironment(overrides = {}) {
-	return {
-		type: ENV_TYPES.GITHUB,
-		isCI: true,
-		baseBranch: CI_BASE_BRANCH,
-		...overrides,
-	};
+  return {
+    type: ENV_TYPES.GITHUB,
+    isCI: true,
+    baseBranch: CI_BASE_BRANCH,
+    ...overrides,
+  };
 }
 
 export function packageJson(overrides = {}) {
-	return {
-		scripts: {},
-		...overrides,
-	};
+  return {
+    scripts: {},
+    ...overrides,
+  };
 }
