@@ -3,7 +3,6 @@ import { resolve, join } from 'node:path';
 
 import { ARGS_OPTIONS, CONFIG_FILES } from './constants.js';
 
-
 function readJsonFile(filePath, label) {
 	if (!existsSync(filePath)) {
 		return null;

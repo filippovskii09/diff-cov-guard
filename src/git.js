@@ -119,7 +119,7 @@ function parseChangedLineRange(hunkHeader) {
  */
 function addChangedLines(changedLinesByFile, filePath, hunkHeader) {
 	const changedLines = parseChangedLineRange(hunkHeader);
-	const fileLines = changedLinesByFile.get(filePath) ?? new Set();
+	const fileLines = changedLinesByFile.get(filePath);
 
 	for (const changedLine of changedLines) {
 		fileLines.add(changedLine);

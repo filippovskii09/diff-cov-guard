@@ -18,7 +18,7 @@ const COVERAGE_SCRIPT_COMMAND = 'npx diff-cov-guard';
 
 function toProjectPath(filePath, cwd = process.cwd()) {
 	const projectPath = relative(cwd, filePath);
-	return projectPath.startsWith('.') ? projectPath : `./${projectPath}`;
+	return `./${projectPath}`;
 }
 
 function pathExists(filePath, cwd) {
