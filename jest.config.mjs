@@ -1,0 +1,25 @@
+export default {
+	testEnvironment: 'node',
+	transform: {},
+	clearMocks: true,
+	restoreMocks: true,
+	coverageProvider: 'v8',
+	collectCoverage: true,
+	coverageDirectory: 'coverage',
+	coverageReporters: ['text', 'json-summary', 'lcov'],
+	collectCoverageFrom: [
+		'src/**/*.js',
+		'bin/**/*.js',
+		'!**/*.test.js',
+		'!**/__tests__/**',
+		'!**/specs/**',
+		'!src/constants.js',
+		'!bin/cli.js',
+	],
+	testMatch: [
+		'<rootDir>/src/**/*.test.js',
+		'<rootDir>/bin/**/*.test.js',
+		'<rootDir>/tests/**/*.test.js',
+		'<rootDir>/src/**/*.spec.js',
+	],
+};

@@ -15,7 +15,8 @@
 		"diff-cov-guard": "bin/cli.js"
 	},
 	"scripts": {
-		"test": "node --test"
+		"test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage=false",
+		"test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
 	},
 	"keywords": [
 		"coverage",
@@ -29,5 +30,8 @@
 		"type": "git",
 		"url": "https://github.com/filippovskii09/diff-cov-guard"
 	},
-	"license": "ISC"
+	"license": "ISC",
+	"devDependencies": {
+		"jest": "30.4.2"
+	}
 }
