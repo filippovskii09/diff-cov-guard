@@ -15,6 +15,8 @@
 		"diff-cov-guard": "bin/cli.js"
 	},
 	"scripts": {
+		"lint": "eslint . --max-warnings=0",
+		"lint:fix": "eslint . --fix",
 		"test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage=false",
 		"test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
 	},
@@ -32,6 +34,11 @@
 	},
 	"license": "ISC",
 	"devDependencies": {
-		"jest": "30.4.2"
+		"@eslint/js": "^10.0.1",
+		"eslint": "^10.4.0",
+		"eslint-config-prettier": "^10.1.8",
+		"eslint-plugin-prettier": "^5.5.5",
+		"jest": "30.4.2",
+		"prettier": "^3.8.3"
 	}
 }

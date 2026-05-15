@@ -73,13 +73,15 @@ describe('index helpers', () => {
 		const jsxSourceFile = 'src/c.jsx';
 		const styleFile = 'src/style.css';
 
-		expect(index.filterCoverageSourceFiles([
-			SOURCE_FILE,
-			tsSourceFile,
-			jsxSourceFile,
-			README_FILE,
-			styleFile,
-		])).toEqual([SOURCE_FILE, tsSourceFile, jsxSourceFile]);
+		expect(
+			index.filterCoverageSourceFiles([
+				SOURCE_FILE,
+				tsSourceFile,
+				jsxSourceFile,
+				README_FILE,
+				styleFile,
+			]),
+		).toEqual([SOURCE_FILE, tsSourceFile, jsxSourceFile]);
 	});
 
 	test('detects changed line presence', () => {
@@ -104,9 +106,7 @@ describe('index helpers', () => {
 				}),
 			],
 		});
-		coverage.passesThreshold
-			.mockReturnValueOnce(false)
-			.mockReturnValueOnce(true);
+		coverage.passesThreshold.mockReturnValueOnce(false).mockReturnValueOnce(true);
 
 		expect(index.createReportRows(uncoveredDiffCoverage)).toEqual([
 			{ File: SOURCE_FILE, 'Changed Lines': 2, 'Covered Lines': 1, Percentage: '50%' },
@@ -162,7 +162,9 @@ describe('run', () => {
 
 		await index.run({}, lifecycle);
 
-		expect(logs.warn).toHaveBeenCalledWith('WARN: LCOV file is empty or missing. Skipping coverage check.');
+		expect(logs.warn).toHaveBeenCalledWith(
+			'WARN: LCOV file is empty or missing. Skipping coverage check.',
+		);
 		expect(lifecycle.exit).toHaveBeenCalledWith(1);
 	});
 
@@ -177,53 +179,67 @@ describe('run', () => {
 			rootDir: process.cwd(),
 		});
 		expect(logs.table).toHaveBeenCalled();
-		expect(logs.log).toHaveBeenCalledWith(expect.stringContaining('Success: Diff Coverage is 100%'));
+		expect(logs.log).toHaveBeenCalledWith(
+			expect.stringContaining('Success: Diff Coverage is 100%'),
+		);
 		expect(lifecycle.exit).toHaveBeenCalledWith(0);
 	});
 
 	test('prints failing coverage details and exits with failure', async () => {
 		const uncoveredLine = 2;
-		coverage.calculateDiffCoverage.mockReturnValue(diffCoverage({
-			percentage: 50,
-			executableLines: 2,
-			files: [fileResult({
-				changedLines: [1, uncoveredLine],
-				executableLines: [1, uncoveredLine],
-				uncoveredLines: [uncoveredLine],
-			})],
-		}));
+		coverage.calculateDiffCoverage.mockReturnValue(
+			diffCoverage({
+				percentage: 50,
+				executableLines: 2,
+				files: [
+					fileResult({
+						changedLines: [1, uncoveredLine],
+						executableLines: [1, uncoveredLine],
+						uncoveredLines: [uncoveredLine],
+					}),
+				],
+			}),
+		);
 		coverage.passesThreshold.mockReturnValue(false);
 
 		await index.run({ baseBranch: CLI_BASE_BRANCH }, lifecycle);
 
 		expect(git.getChangedFiles).toHaveBeenCalledWith(CLI_BASE_BRANCH);
 		expect(logs.error).toHaveBeenCalledWith('\nFiles below diff coverage requirements:');
-		expect(logs.error).toHaveBeenCalledWith(` - ${SOURCE_FILE}: uncovered changed lines ${uncoveredLine}`);
+		expect(logs.error).toHaveBeenCalledWith(
+			` - ${SOURCE_FILE}: uncovered changed lines ${uncoveredLine}`,
+		);
 		expect(lifecycle.exit).toHaveBeenCalledWith(1);
 	});
 
 	test('prints threshold failure without file details when no file has uncovered lines', async () => {
 		const failingPercentage = 80;
-		coverage.calculateDiffCoverage.mockReturnValue(diffCoverage({
-			percentage: failingPercentage,
-			coveredLines: 4,
-			executableLines: 5,
-		}));
+		coverage.calculateDiffCoverage.mockReturnValue(
+			diffCoverage({
+				percentage: failingPercentage,
+				coveredLines: 4,
+				executableLines: 5,
+			}),
+		);
 		coverage.passesThreshold.mockReturnValue(false);
 
 		await index.run({}, lifecycle);
 
 		expect(logs.error).not.toHaveBeenCalledWith('\nFiles below diff coverage requirements:');
-		expect(logs.error).toHaveBeenCalledWith(expect.stringContaining(`Fail: Diff Coverage is ${failingPercentage}%`));
+		expect(logs.error).toHaveBeenCalledWith(
+			expect.stringContaining(`Fail: Diff Coverage is ${failingPercentage}%`),
+		);
 		expect(lifecycle.exit).toHaveBeenCalledWith(1);
 	});
 
 	test('prints no-executable success report', async () => {
-		coverage.calculateDiffCoverage.mockReturnValue(diffCoverage({
-			coveredLines: 0,
-			executableLines: 0,
-			files: [],
-		}));
+		coverage.calculateDiffCoverage.mockReturnValue(
+			diffCoverage({
+				coveredLines: 0,
+				executableLines: 0,
+				files: [],
+			}),
+		);
 
 		await index.run({}, lifecycle);
 

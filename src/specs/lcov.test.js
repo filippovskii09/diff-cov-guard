@@ -20,7 +20,7 @@ const LCOV_MISS_LINE = 2;
 let tempDir;
 
 function tempFile(content) {
-	tempDir = tempDir ?? mkdtempSync(join(tmpdir(), 'diff-cov-guard-'));
+	tempDir ??= mkdtempSync(join(tmpdir(), 'diff-cov-guard-'));
 	const path = join(tempDir, `${TEMP_LCOV_PREFIX}-${Math.random()}${LCOV_FILE_EXTENSION}`);
 	writeFileSync(path, content);
 	return path;
@@ -43,9 +43,12 @@ afterEach(() => {
 
 describe('lcov', () => {
 	test('normalizes absolute, relative, current-dir, and Windows-style paths', () => {
-		expect(normalizePath(`/repo/${NORMALIZED_SOURCE_FILE}`, { repoRoot: REPO_ROOT })).toBe(NORMALIZED_SOURCE_FILE);
-		expect(normalizePath(`./${NORMALIZED_SOURCE_FILE}`, { repoRoot: REPO_ROOT, rootDir: REPO_ROOT }))
-			.toBe(NORMALIZED_SOURCE_FILE);
+		expect(normalizePath(`/repo/${NORMALIZED_SOURCE_FILE}`, { repoRoot: REPO_ROOT })).toBe(
+			NORMALIZED_SOURCE_FILE,
+		);
+		expect(
+			normalizePath(`./${NORMALIZED_SOURCE_FILE}`, { repoRoot: REPO_ROOT, rootDir: REPO_ROOT }),
+		).toBe(NORMALIZED_SOURCE_FILE);
 		expect(normalizePath(PACKAGE_SOURCE_FILE, { repoRoot: REPO_ROOT })).toBe(PACKAGE_SOURCE_FILE);
 		expect(normalizePath('src\\file.js', { repoRoot: REPO_ROOT })).toBe(NORMALIZED_SOURCE_FILE);
 	});
@@ -62,10 +65,12 @@ describe('lcov', () => {
 	});
 
 	test('parses multiple records and finalizes the last record without end_of_record', () => {
-		const lcovPath = tempFile([
-			...lcovRecord(SOURCE_FILE, [[LCOV_HIT_LINE, 1]]),
-			...lcovRecord(`./${SECOND_SOURCE_FILE}`, [[LCOV_MISS_LINE, 0]], { end: false }),
-		].join('\n'));
+		const lcovPath = tempFile(
+			[
+				...lcovRecord(SOURCE_FILE, [[LCOV_HIT_LINE, 1]]),
+				...lcovRecord(`./${SECOND_SOURCE_FILE}`, [[LCOV_MISS_LINE, 0]], { end: false }),
+			].join('\n'),
+		);
 
 		const records = parseLcov(lcovPath, { repoRoot: process.cwd(), rootDir: process.cwd() });
 

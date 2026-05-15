@@ -2,7 +2,7 @@ export const ENV_TYPES = {
 	GITHUB: 'GITHUB',
 	GITLAB: 'GITLAB',
 	LOCAL: 'LOCAL',
-}
+};
 
 export const DEFAULT_BRANCH = 'main';
 
@@ -56,11 +56,4 @@ export const CONSOLE_COLORS = {
 	RESET: '\u001b[0m',
 };
 
-export const COVERAGE_SOURCE_EXTENSIONS = new Set([
-	'.cjs',
-	'.js',
-	'.jsx',
-	'.mjs',
-	'.ts',
-	'.tsx',
-]);
+export const COVERAGE_SOURCE_EXTENSIONS = new Set(['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx']);

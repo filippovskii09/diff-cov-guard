@@ -33,7 +33,7 @@ let lifecycle;
 let logs;
 
 function writeLcov(content) {
-	tempDir = tempDir ?? mkdtempSync(join(tmpdir(), 'diff-cov-index-'));
+	tempDir ??= mkdtempSync(join(tmpdir(), 'diff-cov-index-'));
 	const lcovPath = join(tempDir, 'lcov.info');
 	writeFileSync(lcovPath, content);
 	return lcovPath;
@@ -72,29 +72,45 @@ afterEach(() => {
 
 describe('run integration', () => {
 	test('passes when real LCOV parsing and diff coverage calculation satisfy the threshold', async () => {
-		const lcovPath = writeLcov(lcovRecord(SOURCE_FILE, [[1, 1], [2, 1]]));
-		config.loadConfig.mockReturnValue(runConfig({
-			lcovPath,
-			threshold: DEFAULT_THRESHOLD,
-			rootDir: process.cwd(),
-		}));
+		const lcovPath = writeLcov(
+			lcovRecord(SOURCE_FILE, [
+				[1, 1],
+				[2, 1],
+			]),
+		);
+		config.loadConfig.mockReturnValue(
+			runConfig({
+				lcovPath,
+				threshold: DEFAULT_THRESHOLD,
+				rootDir: process.cwd(),
+			}),
+		);
 
 		await index.run({}, lifecycle);
 
 		expect(logs.table).toHaveBeenCalledWith([
 			{ File: SOURCE_FILE, 'Changed Lines': 2, 'Covered Lines': 2, Percentage: '100%' },
 		]);
-		expect(logs.log).toHaveBeenCalledWith(expect.stringContaining('Success: Diff Coverage is 100%'));
+		expect(logs.log).toHaveBeenCalledWith(
+			expect.stringContaining('Success: Diff Coverage is 100%'),
+		);
 		expect(lifecycle.exit).toHaveBeenCalledWith(0);
 	});
 
 	test('fails with uncovered changed line details from real LCOV parsing and diff coverage calculation', async () => {
-		const lcovPath = writeLcov(lcovRecord(SOURCE_FILE, [[1, 1], [2, 0]]));
-		config.loadConfig.mockReturnValue(runConfig({
-			lcovPath,
-			threshold: DEFAULT_THRESHOLD,
-			rootDir: process.cwd(),
-		}));
+		const lcovPath = writeLcov(
+			lcovRecord(SOURCE_FILE, [
+				[1, 1],
+				[2, 0],
+			]),
+		);
+		config.loadConfig.mockReturnValue(
+			runConfig({
+				lcovPath,
+				threshold: DEFAULT_THRESHOLD,
+				rootDir: process.cwd(),
+			}),
+		);
 
 		await index.run({}, lifecycle);
 

@@ -1,6 +1,8 @@
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
+const LCOV_SOURCE_PREFIX_LENGTH = 3;
+
 function toPosixPath(filePath) {
 	return filePath.split(sep).join('/').replaceAll('\\', '/');
 }
@@ -97,7 +99,7 @@ export function parseLcov(lcovPath, options = {}) {
 		if (line.startsWith('SF:')) {
 			finalizeRecord(records, currentRecord);
 
-			const sourcePath = line.slice(3);
+			const sourcePath = line.slice(LCOV_SOURCE_PREFIX_LENGTH);
 			if (sourcePath.trim().length === 0) {
 				throw new Error('Invalid LCOV format: empty SF record');
 			}

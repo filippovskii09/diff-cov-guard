@@ -115,6 +115,8 @@ describe('config', () => {
 			rootDir: process.cwd(),
 			failOnEmpty: false,
 		});
-		expect(warn).toHaveBeenCalledWith(expect.stringContaining(`Failed to read ${CONFIG_FILES.RC_CONFIG_FILE}`));
+		expect(warn).toHaveBeenCalledWith(
+			expect.stringContaining(`Failed to read ${CONFIG_FILES.RC_CONFIG_FILE}`),
+		);
 	});
 });

@@ -72,9 +72,8 @@ export function calculateDiffCoverage(changedLinesByFile, coverageByFile) {
 		coveredLineCount += fileResult.coveredLines.length;
 	}
 
-	const percentage = executableLineCount === 0
-		? 100
-		: (coveredLineCount / executableLineCount) * 100;
+	const percentage =
+		executableLineCount === 0 ? 100 : (coveredLineCount / executableLineCount) * 100;
 
 	return {
 		percentage,

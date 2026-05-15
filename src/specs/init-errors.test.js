@@ -17,8 +17,7 @@ const PACKAGE_READ_PERMISSION_ERROR = `Permission denied to read ${CONFIG_FILES.
 const RC_WRITE_PERMISSION_ERROR = `Permission denied to write ${CONFIG_FILES.RC_CONFIG_FILE}`;
 
 function mockAnswers(...answers) {
-	return jest.fn()
-		.mockImplementation(() => Promise.resolve(answers.shift() ?? ''));
+	return jest.fn().mockImplementation(() => Promise.resolve(answers.shift() ?? ''));
 }
 
 async function importInitWithMocks({
@@ -63,7 +62,7 @@ describe('init error boundaries', () => {
 		const stdinAnswers = '\n\n2\n';
 		const init = await importInitWithMocks({
 			stdin: { isTTY: false },
-			readFileSync: jest.fn((path) => path === 0 ? stdinAnswers : ''),
+			readFileSync: jest.fn((path) => (path === 0 ? stdinAnswers : '')),
 			existsSync: jest.fn(() => false),
 			writeFile,
 		});
@@ -73,7 +72,7 @@ describe('init error boundaries', () => {
 
 		expect(writeFile).toHaveBeenCalledWith(
 			PACKAGE_JSON_PATH,
-			expect.stringContaining(PACKAGE_CONFIG_KEY_FRAGMENT)
+			expect.stringContaining(PACKAGE_CONFIG_KEY_FRAGMENT),
 		);
 	});
 
@@ -81,7 +80,7 @@ describe('init error boundaries', () => {
 		const writeFile = jest.fn();
 		const init = await importInitWithMocks({
 			stdin: { isTTY: false },
-			readFileSync: jest.fn((path) => path === 0 ? '' : ''),
+			readFileSync: jest.fn((path) => (path === 0 ? '' : '')),
 			existsSync: jest.fn(() => false),
 			writeFile,
 		});
@@ -131,8 +130,7 @@ describe('init error boundaries', () => {
 		});
 		jest.spyOn(console, 'log').mockImplementation(() => {});
 
-		await expect(permissionInit.runInit(REPO_ROOT))
-			.rejects.toThrow(RC_WRITE_PERMISSION_ERROR);
+		await expect(permissionInit.runInit(REPO_ROOT)).rejects.toThrow(RC_WRITE_PERMISSION_ERROR);
 
 		const writeError = new Error('write failed');
 		const unexpectedInit = await importInitWithMocks({

@@ -21,13 +21,19 @@ describe('coverage', () => {
 			[MISSING_SOURCE_FILE, [...MISSING_FILE_LINES].reverse()],
 		]);
 		const coverage = new Map([
-			[SOURCE_FILE, coverageRecord(SOURCE_FILE, [[COVERED_LINE, 1], [UNCOVERED_LINE, 0]])],
+			[
+				SOURCE_FILE,
+				coverageRecord(SOURCE_FILE, [
+					[COVERED_LINE, 1],
+					[UNCOVERED_LINE, 0],
+				]),
+			],
 		]);
 
 		const result = calculateDiffCoverage(changedLines, coverage);
 
 		expect(result).toMatchObject({
-			percentage: 1 / 4 * FULL_COVERAGE,
+			percentage: (1 / 4) * FULL_COVERAGE,
 			coveredLines: 1,
 			executableLines: 4,
 		});
@@ -56,7 +62,7 @@ describe('coverage', () => {
 		const unrelatedCoveredLine = 1;
 		const result = calculateDiffCoverage(
 			changedLinesMap([[SOURCE_FILE, [nonExecutableChangedLine]]]),
-			new Map([[SOURCE_FILE, coverageRecord(SOURCE_FILE, [[unrelatedCoveredLine, 0]])]])
+			new Map([[SOURCE_FILE, coverageRecord(SOURCE_FILE, [[unrelatedCoveredLine, 0]])]]),
 		);
 
 		expect(result.percentage).toBe(FULL_COVERAGE);

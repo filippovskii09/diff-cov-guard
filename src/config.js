@@ -21,37 +21,24 @@ function loadFileConfig(cwd) {
 }
 
 function loadPackageConfig(cwd) {
-	const packageJson = readJsonFile(join(cwd, CONFIG_FILES.PACKAGE_JSON_FILE), CONFIG_FILES.PACKAGE_JSON_FILE);
+	const packageJson = readJsonFile(
+		join(cwd, CONFIG_FILES.PACKAGE_JSON_FILE),
+		CONFIG_FILES.PACKAGE_JSON_FILE,
+	);
 
 	return packageJson?.[CONFIG_FILES.PACKAGE_CONFIG_KEY] ?? {};
 }
 
 function resolveConfig(cliArgs, fileConfigs) {
 	return {
-		threshold: Number(
-			cliArgs.threshold ??
-			fileConfigs.threshold ??
-			ARGS_OPTIONS.threshold.default
-		),
-		lcovPath:
-			cliArgs.lcov ??
-			fileConfigs.lcovPath ??
-			ARGS_OPTIONS.lcov.default,
-		baseBranch:
-			cliArgs.baseBranch ??
-			cliArgs.base ??
-			fileConfigs.baseBranch,
+		threshold: Number(cliArgs.threshold ?? fileConfigs.threshold ?? ARGS_OPTIONS.threshold.default),
+		lcovPath: cliArgs.lcov ?? fileConfigs.lcovPath ?? ARGS_OPTIONS.lcov.default,
+		baseBranch: cliArgs.baseBranch ?? cliArgs.base ?? fileConfigs.baseBranch,
 		rootDir: resolve(
-			cliArgs.rootDir ??
-			cliArgs['root-dir'] ??
-			fileConfigs.rootDir ??
-			process.cwd()
+			cliArgs.rootDir ?? cliArgs['root-dir'] ?? fileConfigs.rootDir ?? process.cwd(),
 		),
 		failOnEmpty: Boolean(
-			cliArgs.failOnEmpty ??
-			cliArgs['fail-on-empty'] ??
-			fileConfigs.failOnEmpty ??
-			false
+			cliArgs.failOnEmpty ?? cliArgs['fail-on-empty'] ?? fileConfigs.failOnEmpty ?? false,
 		),
 	};
 }

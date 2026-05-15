@@ -5,7 +5,7 @@ import { DEFAULT_BRANCH } from './constants.js';
 const execSyncConfig = {
 	encoding: 'utf8',
 	stdio: ['pipe', 'pipe', 'ignore'],
-}
+};
 
 const GIT_DIFF_FILE_PREFIX = '+++ b/';
 const HUNK_HEADER_PREFIX = '@@';
@@ -23,7 +23,7 @@ export function getRemoteDefaultBranch() {
 		const command = `git remote show origin | grep 'HEAD branch' | cut -d' ' -f5`;
 		const branch = execSync(command, execSyncConfig).trim();
 		return branch || DEFAULT_BRANCH;
-	} catch (error) {
+	} catch {
 		return DEFAULT_BRANCH;
 	}
 }
@@ -39,17 +39,17 @@ export function getRemoteDefaultBranch() {
  */
 export const fetchBranch = (branch) => {
 	const execSyncOptions = {
-		stdio: 'ignore'
-	}
+		stdio: 'ignore',
+	};
 	try {
 		console.log(`Fetching ${branch}`);
 		execSync(`git fetch origin ${branch}:${branch} --quiet`, execSyncOptions);
-	} catch (error) {
+	} catch {
 		try {
 			execSync(`git remote set-head origin ${branch}`, execSyncOptions);
 			execSync(`git fetch origin ${branch}:${branch} --quiet`, execSyncOptions);
 		} catch (error) {
-			throw new Error(`Failed to fetch ${branch}`);
+			throw new Error(`Failed to fetch ${branch}`, { cause: error });
 		}
 	}
 };
@@ -70,7 +70,7 @@ export const getChangedFiles = (baseBranch) => {
 
 		return output ? output.split('\n') : [];
 	} catch (error) {
-		throw new Error(`Failed to get changed files: ${error.message}`);
+		throw new Error(`Failed to get changed files: ${error.message}`, { cause: error });
 	}
 };
 
@@ -175,11 +175,11 @@ export function getChangedLines(baseBranch, changedFiles) {
 		const output = execFileSync(
 			'git',
 			['diff', '--unified=0', `${baseBranch}...HEAD`, '--', ...changedFiles],
-			{ encoding: 'utf8' }
+			{ encoding: 'utf8' },
 		);
 		parseChangedLinesDiff(output, changedLinesByFile);
 	} catch (error) {
-		throw new Error(`Failed to get changed lines: ${error.message}`);
+		throw new Error(`Failed to get changed lines: ${error.message}`, { cause: error });
 	}
 
 	return changedLinesByFile;

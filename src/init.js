@@ -7,10 +7,7 @@ import { stdin as input, stdout as output } from 'node:process';
 
 import { ARGS_OPTIONS, CONFIG_FILES, DEFAULT_BRANCH } from './constants.js';
 
-const COMMON_LCOV_PATHS = [
-	'./coverage/lcov.info',
-	'./test-results/lcov.info',
-];
+const COMMON_LCOV_PATHS = ['./coverage/lcov.info', './test-results/lcov.info'];
 const MAX_SEARCH_DEPTH = 3;
 const COVERAGE_SCRIPT_NAME = 'test:coverage';
 const ALTERNATIVE_COVERAGE_SCRIPT_NAME = 'test:diff-coverage';
@@ -30,27 +27,26 @@ function findLcovRecursively(directory, depth, cwd) {
 		return null;
 	}
 
-	let entries = [];
 	try {
-		entries = readdirSync(directory, { withFileTypes: true });
-	} catch (error) {
-		return null;
-	}
+		const entries = readdirSync(directory, { withFileTypes: true });
 
-	for (const entry of entries) {
-		const entryPath = join(directory, entry.name);
+		for (const entry of entries) {
+			const entryPath = join(directory, entry.name);
 
-		if (entry.isFile() && entry.name === 'lcov.info') {
-			return toProjectPath(entryPath, cwd);
-		}
+			if (entry.isFile() && entry.name === 'lcov.info') {
+				return toProjectPath(entryPath, cwd);
+			}
 
-		if (entry.isDirectory() && entry.name !== 'node_modules' && entry.name !== '.git') {
-			const foundPath = findLcovRecursively(entryPath, depth + 1, cwd);
+			if (entry.isDirectory() && entry.name !== 'node_modules' && entry.name !== '.git') {
+				const foundPath = findLcovRecursively(entryPath, depth + 1, cwd);
 
-			if (foundPath) {
-				return foundPath;
+				if (foundPath) {
+					return foundPath;
+				}
 			}
 		}
+	} catch {
+		return null;
 	}
 
 	return null;
@@ -73,7 +69,7 @@ function branchExists(branch, cwd) {
 			stdio: 'ignore',
 		});
 		return true;
-	} catch (error) {
+	} catch {
 		return false;
 	}
 }
@@ -89,7 +85,7 @@ export function discoverBaseBranch(cwd = process.cwd()) {
 		if (branch) {
 			return branch;
 		}
-	} catch (error) {
+	} catch {
 		// Local repositories without a remote are expected during setup.
 	}
 
@@ -123,7 +119,9 @@ function createQuestioner() {
 				output.write(prompt);
 				return Promise.resolve(answers.shift() ?? '');
 			},
-			close() {},
+			close() {
+				return undefined;
+			},
 		};
 	}
 
@@ -158,7 +156,7 @@ async function askLcovPath(questioner, detectedLcovPath, cwd) {
 
 	while (true) {
 		const answer = await questioner.ask(
-			`Path to your lcov.info (detected: ${detectedLcovPath ?? 'none'} | default: ${fallbackPath}): `
+			`Path to your lcov.info (detected: ${detectedLcovPath ?? 'none'} | default: ${fallbackPath}): `,
 		);
 		const lcovPath = answer.trim() || defaultPath;
 
@@ -173,7 +171,7 @@ async function askLcovPath(questioner, detectedLcovPath, cwd) {
 async function askConfigFormat(questioner) {
 	while (true) {
 		const answer = await questioner.ask(
-			'Choose config format: 1) .diffcovguardrc (JSON) 2) Add to package.json '
+			'Choose config format: 1) .diffcovguardrc (JSON) 2) Add to package.json ',
 		);
 		const choice = answer.trim() || '1';
 
@@ -205,7 +203,7 @@ async function askOverwriteRcConfig(questioner) {
 async function askScriptConflict(questioner) {
 	while (true) {
 		const answer = await questioner.ask(
-			`Script "${COVERAGE_SCRIPT_NAME}" already exists. Use "${ALTERNATIVE_COVERAGE_SCRIPT_NAME}" instead? (y/n) `
+			`Script "${COVERAGE_SCRIPT_NAME}" already exists. Use "${ALTERNATIVE_COVERAGE_SCRIPT_NAME}" instead? (y/n) `,
 		);
 		const choice = answer.trim().toLowerCase();
 
@@ -230,11 +228,16 @@ async function readPackageJson(packageJsonPath) {
 		return JSON.parse(await readFile(packageJsonPath, 'utf8'));
 	} catch (error) {
 		if (error.code === 'EACCES') {
-			throw new Error(`Permission denied to read ${CONFIG_FILES.PACKAGE_JSON_FILE}`);
+			throw new Error(`Permission denied to read ${CONFIG_FILES.PACKAGE_JSON_FILE}`, {
+				cause: error,
+			});
 		}
 
 		if (error instanceof SyntaxError) {
-			throw new Error(`${CONFIG_FILES.PACKAGE_JSON_FILE} is not valid JSON. Fix it before running init.`);
+			throw new Error(
+				`${CONFIG_FILES.PACKAGE_JSON_FILE} is not valid JSON. Fix it before running init.`,
+				{ cause: error },
+			);
 		}
 
 		throw error;
@@ -246,7 +249,7 @@ async function writeJson(filePath, data, label) {
 		await writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`);
 	} catch (error) {
 		if (error.code === 'EACCES') {
-			throw new Error(`Permission denied to write ${label}`);
+			throw new Error(`Permission denied to write ${label}`, { cause: error });
 		}
 
 		throw error;
@@ -267,7 +270,9 @@ async function addCoverageScript(packageJson, questioner) {
 		const alternativeScriptName = await askScriptConflict(questioner);
 
 		if (!alternativeScriptName) {
-			console.warn(`⚠️  Skipped script creation. Existing "${COVERAGE_SCRIPT_NAME}" was left untouched.`);
+			console.warn(
+				`⚠️  Skipped script creation. Existing "${COVERAGE_SCRIPT_NAME}" was left untouched.`,
+			);
 			return null;
 		}
 
@@ -310,7 +315,9 @@ async function createRcConfig(cwd, config, questioner) {
 		const shouldOverwrite = await askOverwriteRcConfig(questioner);
 
 		if (!shouldOverwrite) {
-			console.warn(`⚠️  Skipped ${CONFIG_FILES.RC_CONFIG_FILE}. Existing config was left untouched.`);
+			console.warn(
+				`⚠️  Skipped ${CONFIG_FILES.RC_CONFIG_FILE}. Existing config was left untouched.`,
+			);
 			return;
 		}
 	}

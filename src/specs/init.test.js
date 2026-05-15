@@ -132,19 +132,27 @@ describe('init discovery', () => {
 
 		execSync.mockReset();
 		execSync
-			.mockImplementationOnce(() => { throw new Error(NO_REMOTE_ERROR_MESSAGE); })
+			.mockImplementationOnce(() => {
+				throw new Error(NO_REMOTE_ERROR_MESSAGE);
+			})
 			.mockReturnValueOnce('');
 		expect(init.discoverBaseBranch(cwd)).toBe(DEFAULT_BRANCH);
 
 		execSync.mockReset();
 		execSync
-			.mockImplementationOnce(() => { throw new Error(NO_REMOTE_ERROR_MESSAGE); })
-			.mockImplementationOnce(() => { throw new Error('no main'); })
+			.mockImplementationOnce(() => {
+				throw new Error(NO_REMOTE_ERROR_MESSAGE);
+			})
+			.mockImplementationOnce(() => {
+				throw new Error('no main');
+			})
 			.mockReturnValueOnce('');
 		expect(init.discoverBaseBranch(cwd)).toBe('master');
 
 		execSync.mockReset();
-		execSync.mockImplementation(() => { throw new Error('missing'); });
+		execSync.mockImplementation(() => {
+			throw new Error('missing');
+		});
 		expect(init.discoverBaseBranch(cwd)).toBe(DEFAULT_BRANCH);
 	});
 });
@@ -161,10 +169,12 @@ describe('runInit', () => {
 
 		await init.runInit(cwd);
 
-		expect(readRcConfig(cwd)).toEqual(expectedConfig({
-			threshold: selectedThreshold,
-			lcovPath: DEFAULT_LCOV_PATH,
-		}));
+		expect(readRcConfig(cwd)).toEqual(
+			expectedConfig({
+				threshold: selectedThreshold,
+				lcovPath: DEFAULT_LCOV_PATH,
+			}),
+		);
 		expect(readPackageJson(cwd).scripts[COVERAGE_SCRIPT_NAME]).toBe(COVERAGE_SCRIPT_COMMAND);
 		expect(question).toHaveBeenCalledTimes(6);
 		expect(close).toHaveBeenCalled();
@@ -220,7 +230,9 @@ describe('runInit', () => {
 			[COVERAGE_SCRIPT_NAME]: EXISTING_SCRIPT_COMMAND,
 		});
 		expect(question).toHaveBeenCalledTimes(6);
-		expect(warn).toHaveBeenCalledWith('⚠️  Skipped script creation. Existing "test:coverage" was left untouched.');
+		expect(warn).toHaveBeenCalledWith(
+			'⚠️  Skipped script creation. Existing "test:coverage" was left untouched.',
+		);
 	});
 
 	test('skips rc overwrite and script creation when user declines both prompts', async () => {
@@ -236,13 +248,21 @@ describe('runInit', () => {
 
 		await init.runInit(cwd);
 
-		expect(readFileSync(projectPath(cwd, CONFIG_FILES.RC_CONFIG_FILE), 'utf8')).toBe(EXISTING_CONFIG);
+		expect(readFileSync(projectPath(cwd, CONFIG_FILES.RC_CONFIG_FILE), 'utf8')).toBe(
+			EXISTING_CONFIG,
+		);
 		expect(readPackageJson(cwd).scripts).toEqual({
 			[COVERAGE_SCRIPT_NAME]: EXISTING_SCRIPT_COMMAND,
 		});
-		expect(warn).toHaveBeenCalledWith('⚠️  Skipped .diffcovguardrc. Existing config was left untouched.');
-		expect(warn).toHaveBeenCalledWith('⚠️  Skipped script creation. Existing "test:coverage" was left untouched.');
-		expect(log).toHaveBeenCalledWith('✅ Config created! Add a package script when you are ready to guard your PRs.');
+		expect(warn).toHaveBeenCalledWith(
+			'⚠️  Skipped .diffcovguardrc. Existing config was left untouched.',
+		);
+		expect(warn).toHaveBeenCalledWith(
+			'⚠️  Skipped script creation. Existing "test:coverage" was left untouched.',
+		);
+		expect(log).toHaveBeenCalledWith(
+			'✅ Config created! Add a package script when you are ready to guard your PRs.',
+		);
 	});
 
 	test('closes the questioner when package JSON cannot be parsed', async () => {

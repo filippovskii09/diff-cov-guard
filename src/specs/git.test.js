@@ -73,7 +73,9 @@ describe('git', () => {
 
 		execSync.mockReset();
 		execSync
-			.mockImplementationOnce(() => { throw new Error('fetch failed'); })
+			.mockImplementationOnce(() => {
+				throw new Error('fetch failed');
+			})
 			.mockReturnValueOnce(EMPTY_OUTPUT)
 			.mockReturnValueOnce(EMPTY_OUTPUT);
 
@@ -105,7 +107,9 @@ describe('git', () => {
 		execSync.mockImplementationOnce(() => {
 			throw new Error('bad diff');
 		});
-		expect(() => git.getChangedFiles(DEFAULT_BRANCH)).toThrow('Failed to get changed files: bad diff');
+		expect(() => git.getChangedFiles(DEFAULT_BRANCH)).toThrow(
+			'Failed to get changed files: bad diff',
+		);
 	});
 
 	test('parses changed lines across files and hunk shapes', () => {
@@ -120,7 +124,7 @@ describe('git', () => {
 		expect(execFileSync).toHaveBeenCalledWith(
 			'git',
 			['diff', '--unified=0', `${DEFAULT_BRANCH}...HEAD`, '--', ...changedFiles],
-			{ encoding: 'utf8' }
+			{ encoding: 'utf8' },
 		);
 	});
 
@@ -131,8 +135,9 @@ describe('git', () => {
 		execFileSync.mockImplementationOnce(() => {
 			throw new Error('diff failed');
 		});
-		expect(() => git.getChangedLines(DEFAULT_BRANCH, [SOURCE_FILE]))
-			.toThrow('Failed to get changed lines: diff failed');
+		expect(() => git.getChangedLines(DEFAULT_BRANCH, [SOURCE_FILE])).toThrow(
+			'Failed to get changed lines: diff failed',
+		);
 	});
 
 	test('detects dirty and clean git status', () => {

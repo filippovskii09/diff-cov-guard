@@ -42,7 +42,6 @@ Options:
 	}
 
 	await run(values);
-
 } catch (error) {
 	console.error(`❌ Error: ${error.message}`);
 	console.log('Use --help for available options.');

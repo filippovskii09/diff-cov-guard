@@ -1,11 +1,6 @@
 import { ARGS_OPTIONS, CONFIG_FILES, DEFAULT_BRANCH, ENV_TYPES } from '../../constants.js';
 
-export {
-	ARGS_OPTIONS,
-	CONFIG_FILES,
-	DEFAULT_BRANCH,
-	ENV_TYPES,
-};
+export { ARGS_OPTIONS, CONFIG_FILES, DEFAULT_BRANCH, ENV_TYPES };
 
 export const DEFAULT_THRESHOLD = Number(ARGS_OPTIONS.threshold.default);
 export const DEFAULT_LCOV_PATH = ARGS_OPTIONS.lcov.default;

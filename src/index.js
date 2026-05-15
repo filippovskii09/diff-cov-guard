@@ -7,7 +7,6 @@ import { fetchBranch, getChangedFiles, getChangedLines, getRemoteDefaultBranch }
 import { loadConfig } from './config.js';
 import { isLcovEmptyOrMissing, parseLcov } from './lcov.js';
 
-
 function colorize(color, message) {
 	return `${color}${message}${CONSOLE_COLORS.RESET}`;
 }
@@ -43,17 +42,17 @@ export function hasChangedLines(changedLinesByFile) {
 export function createReportRows(diffCoverage) {
 	return diffCoverage.files.map((file) => {
 		const executableLineCount = file.executableLines.length;
-		const percentage = executableLineCount === 0
-			? 100
-			: (file.coveredLines.length / executableLineCount) * 100;
+		const percentage =
+			executableLineCount === 0 ? 100 : (file.coveredLines.length / executableLineCount) * 100;
 
 		return {
 			File: file.filePath,
 			'Changed Lines': file.changedLines.length,
 			'Covered Lines': file.coveredLines.length,
-			Percentage: executableLineCount === 0
-				? '100% (No executable changes)'
-				: `${formatPercentage(percentage)}%`,
+			Percentage:
+				executableLineCount === 0
+					? '100% (No executable changes)'
+					: `${formatPercentage(percentage)}%`,
 		};
 	});
 }
@@ -85,29 +84,33 @@ function printFinalReport(config, diffCoverage) {
 	console.table(createReportRows(diffCoverage));
 
 	if (diffCoverage.executableLines === 0) {
-		console.log(colorize(CONSOLE_COLORS.GREEN, '✔ Success: Diff Coverage is 100% (No executable changes).'));
+		console.log(
+			colorize(CONSOLE_COLORS.GREEN, '✔ Success: Diff Coverage is 100% (No executable changes).'),
+		);
 		return;
 	}
 
 	if (passesThreshold(diffCoverage, config.threshold)) {
-		console.log(colorize(
-			CONSOLE_COLORS.GREEN,
-			`✔ Success: Diff Coverage is ${formatPercentage(diffCoverage.percentage)}%, minimum required is ${config.threshold}%.`
-		));
+		console.log(
+			colorize(
+				CONSOLE_COLORS.GREEN,
+				`✔ Success: Diff Coverage is ${formatPercentage(diffCoverage.percentage)}%, minimum required is ${config.threshold}%.`,
+			),
+		);
 		return;
 	}
 
 	printFailureDetails(diffCoverage);
-	console.error(colorize(
-		CONSOLE_COLORS.RED,
-		`✖ Fail: Diff Coverage is ${formatPercentage(diffCoverage.percentage)}%, but minimum required is ${config.threshold}%.`
-	));
+	console.error(
+		colorize(
+			CONSOLE_COLORS.RED,
+			`✖ Fail: Diff Coverage is ${formatPercentage(diffCoverage.percentage)}%, but minimum required is ${config.threshold}%.`,
+		),
+	);
 }
 
 export function getExitCode(diffCoverage, threshold) {
-	return passesThreshold(diffCoverage, threshold)
-		? EXIT_CODES.SUCCESS
-		: EXIT_CODES.FAILURE;
+	return passesThreshold(diffCoverage, threshold) ? EXIT_CODES.SUCCESS : EXIT_CODES.FAILURE;
 }
 
 function exitWith(lifecycle, code) {

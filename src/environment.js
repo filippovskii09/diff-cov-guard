@@ -1,4 +1,4 @@
-import { ENV_TYPES } from "./constants.js"
+import { ENV_TYPES } from './constants.js';
 
 /**
  * Detects the execution environment from supported CI variables.
@@ -16,7 +16,7 @@ export const getEnvironment = () => {
 			isCI: true,
 			baseBranch: process.env.GITHUB_BASE_REF,
 			currentBranch: process.env.GITHUB_REF_NAME,
-		}
+		};
 	}
 
 	if (process.env.GITLAB_CI) {
@@ -25,7 +25,7 @@ export const getEnvironment = () => {
 			isCI: true,
 			baseBranch: process.env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME,
 			currentBranch: process.env.GITLAB_COMMIT_REF_NAME,
-		}
+		};
 	}
 
 	return {
@@ -33,5 +33,5 @@ export const getEnvironment = () => {
 		isCI: false,
 		baseBranch: null,
 		currentBranch: null,
-	}
-}
+	};
+};
