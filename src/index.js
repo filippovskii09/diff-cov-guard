@@ -117,9 +117,9 @@ function exitWith(lifecycle, code) {
 /**
  * Runs the coverage guard workflow for the current repository context.
  *
- * Determines the comparison branch from CLI arguments, CI metadata, or the
- * remote default branch, fetches the base branch in CI, and prints the changed
- * files that downstream coverage checks should evaluate.
+ * Determines the comparison branch from CLI arguments, CI metadata, config, or
+ * the remote default branch, fetches the base branch in CI, and prints the
+ * changed files that downstream coverage checks should evaluate.
  *
  * @param {object} args - Parsed CLI options.
  * @param {string} [args.base] - Explicit base branch override.
@@ -133,12 +133,10 @@ export async function run(args, lifecycle = process) {
 		console.log('Starting coverage check...');
 
 		const env = getEnvironment();
-		const base = args.base || env.baseBranch || getRemoteDefaultBranch();
-
-		const config = loadConfig({
-			...args,
-			baseBranch: base,
-		});
+		const config = loadConfig(args);
+		const cliBase = args.base ?? args.baseBranch;
+		const base = cliBase ?? env.baseBranch ?? config.baseBranch ?? getRemoteDefaultBranch();
+		config.baseBranch = base;
 
 		console.log('🛠  Resolved Config:', config);
 

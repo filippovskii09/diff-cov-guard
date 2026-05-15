@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 
-import { ARGS_OPTIONS, DEFAULT_BRANCH, CONFIG_FILES } from './constants.js';
+import { ARGS_OPTIONS, CONFIG_FILES } from './constants.js';
 
 
 function readJsonFile(filePath, label) {
@@ -41,8 +41,7 @@ function resolveConfig(cliArgs, fileConfigs) {
 		baseBranch:
 			cliArgs.baseBranch ??
 			cliArgs.base ??
-			fileConfigs.baseBranch ??
-			DEFAULT_BRANCH,
+			fileConfigs.baseBranch,
 		rootDir: resolve(
 			cliArgs.rootDir ??
 			cliArgs['root-dir'] ??
