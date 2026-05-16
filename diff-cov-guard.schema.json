@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/filippovskii09/diff-cov-guard/main/diff-cov-guard.schema.json",
+  "title": "diff-cov-guard configuration",
+  "description": "Configuration for diff-cov-guard.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema URL for editor validation."
+    },
+    "threshold": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Minimum required diff coverage percentage."
+    },
+    "lcovPath": {
+      "type": "string",
+      "description": "Path to the LCOV report generated before the guard runs."
+    },
+    "baseBranch": {
+      "type": "string",
+      "description": "Branch used for local diff checks when CI does not provide a target branch."
+    },
+    "rootDir": {
+      "type": "string",
+      "description": "Directory that LCOV paths are relative to."
+    },
+    "failOnEmpty": {
+      "type": "boolean",
+      "description": "Fail when the LCOV file is missing or empty."
+    }
+  }
+}
