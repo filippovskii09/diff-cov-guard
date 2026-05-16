@@ -14,7 +14,6 @@ export default {
     '!**/__tests__/**',
     '!**/specs/**',
     '!src/constants.js',
-    '!bin/cli.js',
   ],
   testMatch: [
     '<rootDir>/src/**/*.test.js',

@@ -28,7 +28,7 @@ async function importInitWithMocks({
   readFile = jest.fn(),
   writeFile = jest.fn(),
   question = jest.fn(),
-  execSync = jest.fn(() => `${DEFAULT_BRANCH}\n`),
+  execFileSync = jest.fn(() => `HEAD branch: ${DEFAULT_BRANCH}\n`),
 } = {}) {
   jest.resetModules();
   jest.unstable_mockModule('node:fs', () => ({
@@ -40,7 +40,7 @@ async function importInitWithMocks({
     readFile,
     writeFile,
   }));
-  jest.unstable_mockModule('node:child_process', () => ({ execSync }));
+  jest.unstable_mockModule('node:child_process', () => ({ execFileSync }));
   jest.unstable_mockModule('node:readline/promises', () => ({
     createInterface: jest.fn(() => ({ question, close: jest.fn() })),
   }));
