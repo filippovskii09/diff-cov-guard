@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 function setEnv(values) {
-  process.env = { ...originalEnv, ...values };
+  process.env = { ...values };
 }
 
 describe('environment', () => {
