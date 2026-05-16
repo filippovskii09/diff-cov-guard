@@ -31,7 +31,7 @@ function resolveConfig(cliArgs, fileConfigs) {
     threshold: Number(cliArgs.threshold ?? fileConfigs.threshold ?? ARGS_OPTIONS.threshold.default),
     lcovPath: cliArgs.lcov ?? fileConfigs.lcovPath ?? ARGS_OPTIONS.lcov.default,
     baseBranch: cliArgs.baseBranch ?? cliArgs.base ?? fileConfigs.baseBranch,
-          rootDir: resolve(cliArgs.rootDir ?? cliArgs['root-dir'] ?? fileConfigs.rootDir ?? process.cwd()),
+    rootDir: resolve(cliArgs.rootDir ?? cliArgs['root-dir'] ?? fileConfigs.rootDir ?? process.cwd()),
     failOnEmpty: Boolean(cliArgs.failOnEmpty ?? cliArgs['fail-on-empty'] ?? fileConfigs.failOnEmpty ?? false),
   };
 }
