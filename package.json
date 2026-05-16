@@ -15,6 +15,7 @@
     "diff-cov-guard": "bin/cli.js"
   },
   "scripts": {
+    "build": "npm pack --dry-run",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings=0",
