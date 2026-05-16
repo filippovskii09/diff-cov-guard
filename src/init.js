@@ -12,6 +12,8 @@ const MAX_SEARCH_DEPTH = 3;
 const COVERAGE_SCRIPT_NAME = 'test:coverage';
 const ALTERNATIVE_COVERAGE_SCRIPT_NAME = 'test:diff-coverage';
 const COVERAGE_SCRIPT_COMMAND = 'npx diff-cov-guard';
+const CONFIG_SCHEMA_URL =
+  'https://raw.githubusercontent.com/filippovskii09/diff-cov-guard/main/diff-cov-guard.schema.json';
 
 function toProjectPath(filePath, cwd = process.cwd()) {
   const projectPath = relative(cwd, filePath);
@@ -322,7 +324,14 @@ async function createRcConfig(cwd, config, questioner) {
     }
   }
 
-  await writeJson(configPath, config, CONFIG_FILES.RC_CONFIG_FILE);
+  await writeJson(
+    configPath,
+    {
+      $schema: CONFIG_SCHEMA_URL,
+      ...config,
+    },
+    CONFIG_FILES.RC_CONFIG_FILE
+  );
 }
 
 function createConfig(threshold, lcovPath, baseBranch) {

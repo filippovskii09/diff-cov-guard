@@ -41,6 +41,8 @@ const ALTERNATIVE_COVERAGE_SCRIPT_NAME = 'test:diff-coverage';
 const COVERAGE_SCRIPT_COMMAND = 'npx diff-cov-guard';
 const EXISTING_CONFIG = '{"threshold":1}\n';
 const EXISTING_SCRIPT_COMMAND = 'existing';
+const CONFIG_SCHEMA_URL =
+  'https://raw.githubusercontent.com/filippovskii09/diff-cov-guard/main/diff-cov-guard.schema.json';
 
 let tempDir;
 
@@ -92,6 +94,13 @@ function expectedConfig(overrides = {}) {
     lcovPath: DEFAULT_LCOV_PATH,
     baseBranch: DEFAULT_BRANCH,
     ...overrides,
+  };
+}
+
+function expectedRcConfig(overrides = {}) {
+  return {
+    $schema: CONFIG_SCHEMA_URL,
+    ...expectedConfig(overrides),
   };
 }
 
@@ -178,7 +187,7 @@ describe('runInit', () => {
     await init.runInit(cwd);
 
     expect(readRcConfig(cwd)).toEqual(
-      expectedConfig({
+      expectedRcConfig({
         threshold: selectedThreshold,
         lcovPath: DEFAULT_LCOV_PATH,
       })
@@ -199,7 +208,7 @@ describe('runInit', () => {
 
     await init.runInit(cwd);
 
-    expect(readRcConfig(cwd)).toEqual(expectedConfig({ lcovPath: absoluteLcovPath }));
+    expect(readRcConfig(cwd)).toEqual(expectedRcConfig({ lcovPath: absoluteLcovPath }));
   });
 
   test('writes package config and alternative script when default script exists', async () => {
@@ -233,7 +242,7 @@ describe('runInit', () => {
 
     await init.runInit(cwd);
 
-    expect(readRcConfig(cwd)).toEqual(expectedConfig({ threshold: selectedThreshold }));
+    expect(readRcConfig(cwd)).toEqual(expectedRcConfig({ threshold: selectedThreshold }));
     expect(readPackageJson(cwd).scripts).toEqual({
       [COVERAGE_SCRIPT_NAME]: EXISTING_SCRIPT_COMMAND,
     });

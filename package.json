@@ -9,7 +9,8 @@
   },
   "files": [
     "bin/",
-    "src/"
+    "src/",
+    "diff-cov-guard.schema.json"
   ],
   "bin": {
     "diff-cov-guard": "bin/cli.js"

@@ -102,6 +102,7 @@ For CI, the recommended setup is a config file plus a short command:
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/filippovskii09/diff-cov-guard/main/diff-cov-guard.schema.json",
   "threshold": 95,
   "lcovPath": "./coverage/lcov.info",
   "failOnEmpty": true
@@ -162,6 +163,7 @@ If you use a config file, do not repeat the same values in CI:
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/filippovskii09/diff-cov-guard/main/diff-cov-guard.schema.json",
   "threshold": 95,
   "lcovPath": "./coverage/lcov.info",
   "failOnEmpty": true
@@ -224,6 +226,7 @@ Recommended CI config in `.diffcovguardrc`:
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/filippovskii09/diff-cov-guard/main/diff-cov-guard.schema.json",
   "threshold": 95,
   "lcovPath": "./coverage/lcov.info",
   "failOnEmpty": true
@@ -254,12 +257,31 @@ Config fields:
 | `rootDir`     | current directory      | Directory that LCOV paths are relative to. Useful when tests run from a package directory in a monorepo. |
 | `failOnEmpty` | `false`                | When `true`, missing or empty LCOV fails the command. Recommended for CI.                                |
 
+For immediate VS Code support before SchemaStore recognizes `.diffcovguardrc`,
+associate the file with JSON and optionally map the schema in workspace
+settings:
+
+```json
+{
+  "files.associations": {
+    ".diffcovguardrc": "json"
+  },
+  "json.schemas": [
+    {
+      "fileMatch": ["/.diffcovguardrc"],
+      "url": "https://raw.githubusercontent.com/filippovskii09/diff-cov-guard/main/diff-cov-guard.schema.json"
+    }
+  ]
+}
+```
+
 `rootDir` is only needed when LCOV paths do not match Git paths. For example,
 Git may report `packages/app/src/Button.tsx`, while LCOV may report
 `src/Button.tsx` because Jest ran inside `packages/app`. In that case, set:
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/filippovskii09/diff-cov-guard/main/diff-cov-guard.schema.json",
   "lcovPath": "packages/app/coverage/lcov.info",
   "rootDir": "packages/app"
 }
@@ -562,6 +584,7 @@ For CI, the recommended setup is a config file plus a short command:
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/filippovskii09/diff-cov-guard/main/diff-cov-guard.schema.json",
   "threshold": 95,
   "lcovPath": "./coverage/lcov.info",
   "failOnEmpty": true
@@ -622,6 +645,7 @@ If you use a config file, do not repeat the same values in CI:
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/filippovskii09/diff-cov-guard/main/diff-cov-guard.schema.json",
   "threshold": 95,
   "lcovPath": "./coverage/lcov.info",
   "failOnEmpty": true
@@ -684,6 +708,7 @@ Recommended CI config in `.diffcovguardrc`:
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/filippovskii09/diff-cov-guard/main/diff-cov-guard.schema.json",
   "threshold": 95,
   "lcovPath": "./coverage/lcov.info",
   "failOnEmpty": true
@@ -714,12 +739,31 @@ Config fields:
 | `rootDir`     | current directory      | Directory that LCOV paths are relative to. Useful when tests run from a package directory in a monorepo. |
 | `failOnEmpty` | `false`                | When `true`, missing or empty LCOV fails the command. Recommended for CI.                                |
 
+For immediate VS Code support before SchemaStore recognizes `.diffcovguardrc`,
+associate the file with JSON and optionally map the schema in workspace
+settings:
+
+```json
+{
+  "files.associations": {
+    ".diffcovguardrc": "json"
+  },
+  "json.schemas": [
+    {
+      "fileMatch": ["/.diffcovguardrc"],
+      "url": "https://raw.githubusercontent.com/filippovskii09/diff-cov-guard/main/diff-cov-guard.schema.json"
+    }
+  ]
+}
+```
+
 `rootDir` is only needed when LCOV paths do not match Git paths. For example,
 Git may report `packages/app/src/Button.tsx`, while LCOV may report
 `src/Button.tsx` because Jest ran inside `packages/app`. In that case, set:
 
 ```json
 {
+  "$schema": "https://raw.githubusercontent.com/filippovskii09/diff-cov-guard/main/diff-cov-guard.schema.json",
   "lcovPath": "packages/app/coverage/lcov.info",
   "rootDir": "packages/app"
 }
