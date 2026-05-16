@@ -1,14 +1,20 @@
-import { execFileSync, execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 import { DEFAULT_BRANCH } from './constants.js';
 
-const execSyncConfig = {
+const execFileConfig = {
   encoding: 'utf8',
   stdio: ['pipe', 'pipe', 'ignore'],
 };
 
 const GIT_DIFF_FILE_PREFIX = '+++ b/';
 const HUNK_HEADER_PREFIX = '@@';
+
+function parseRemoteHeadBranch(output) {
+  const headBranchLine = output.split('\n').find((line) => line.trim().startsWith('HEAD branch:'));
+
+  return headBranchLine?.split(':').at(1)?.trim() ?? '';
+}
 
 /**
  * Resolves the default branch configured for the `origin` remote.
@@ -20,8 +26,8 @@ const HUNK_HEADER_PREFIX = '@@';
  */
 export function getRemoteDefaultBranch() {
   try {
-    const command = `git remote show origin | grep 'HEAD branch' | cut -d' ' -f5`;
-    const branch = execSync(command, execSyncConfig).trim();
+    const output = execFileSync('git', ['remote', 'show', 'origin'], execFileConfig);
+    const branch = parseRemoteHeadBranch(output);
     return branch || DEFAULT_BRANCH;
   } catch {
     return DEFAULT_BRANCH;
@@ -38,16 +44,16 @@ export function getRemoteDefaultBranch() {
  * @param {string} branch - Branch name expected to exist on the `origin` remote.
  */
 export const fetchBranch = (branch) => {
-  const execSyncOptions = {
+  const execFileOptions = {
     stdio: 'ignore',
   };
   try {
     console.log(`Fetching ${branch}`);
-    execSync(`git fetch origin ${branch}:${branch} --quiet`, execSyncOptions);
+    execFileSync('git', ['fetch', 'origin', `${branch}:${branch}`, '--quiet'], execFileOptions);
   } catch {
     try {
-      execSync(`git remote set-head origin ${branch}`, execSyncOptions);
-      execSync(`git fetch origin ${branch}:${branch} --quiet`, execSyncOptions);
+      execFileSync('git', ['remote', 'set-head', 'origin', branch], execFileOptions);
+      execFileSync('git', ['fetch', 'origin', `${branch}:${branch}`, '--quiet'], execFileOptions);
     } catch (error) {
       throw new Error(`Failed to fetch ${branch}`, { cause: error });
     }
@@ -65,8 +71,7 @@ export const fetchBranch = (branch) => {
  */
 export const getChangedFiles = (baseBranch) => {
   try {
-    const command = `git diff --name-only ${baseBranch}...HEAD`;
-    const output = execSync(command, { encoding: 'utf8' }).trim();
+    const output = execFileSync('git', ['diff', '--name-only', `${baseBranch}...HEAD`], { encoding: 'utf8' }).trim();
 
     return output ? output.split('\n') : [];
   } catch (error) {
@@ -189,6 +194,6 @@ export function getChangedLines(baseBranch, changedFiles) {
  * @returns {boolean} `true` when `git status --porcelain` reports any entry.
  */
 export function isDirty() {
-  const status = execSync('git status --porcelain', execSyncConfig).trim();
+  const status = execFileSync('git', ['status', '--porcelain'], execFileConfig).trim();
   return status.length > 0;
 }

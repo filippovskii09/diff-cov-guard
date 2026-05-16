@@ -14,12 +14,12 @@ import {
   NO_REMOTE_ERROR_MESSAGE,
 } from './helpers/fixtures.js';
 
-const execSync = jest.fn();
+const execFileSync = jest.fn();
 const question = jest.fn();
 const close = jest.fn();
 const outputWrite = jest.fn();
 
-jest.unstable_mockModule('node:child_process', () => ({ execSync }));
+jest.unstable_mockModule('node:child_process', () => ({ execFileSync }));
 jest.unstable_mockModule('node:readline/promises', () => ({
   createInterface: jest.fn(() => ({ question, close })),
 }));
@@ -82,6 +82,10 @@ function mockAnswers(...answers) {
   }
 }
 
+function remoteShowOutput(branch) {
+  return [`* remote origin`, `  Fetch URL: git@example.com/repo.git`, `  HEAD branch: ${branch}`].join('\n');
+}
+
 function expectedConfig(overrides = {}) {
   return {
     threshold: DEFAULT_THRESHOLD,
@@ -100,7 +104,7 @@ afterEach(() => {
 });
 
 beforeEach(() => {
-  execSync.mockReset();
+  execFileSync.mockReset();
   question.mockReset();
   close.mockReset();
   outputWrite.mockReset();
@@ -127,19 +131,23 @@ describe('init discovery', () => {
 
   test('discovers base branch from remote, local main, local master, and default fallback', () => {
     const cwd = makeTempProject();
-    execSync.mockReturnValueOnce(`${DEVELOP_BRANCH}\n`);
+    execFileSync.mockReturnValueOnce(remoteShowOutput(DEVELOP_BRANCH));
     expect(init.discoverBaseBranch(cwd)).toBe(DEVELOP_BRANCH);
 
-    execSync.mockReset();
-    execSync
+    execFileSync.mockReset();
+    execFileSync
       .mockImplementationOnce(() => {
         throw new Error(NO_REMOTE_ERROR_MESSAGE);
       })
       .mockReturnValueOnce('');
     expect(init.discoverBaseBranch(cwd)).toBe(DEFAULT_BRANCH);
 
-    execSync.mockReset();
-    execSync
+    execFileSync.mockReset();
+    execFileSync.mockReturnValueOnce('  Fetch URL: git@example.com/repo.git\n').mockReturnValueOnce('');
+    expect(init.discoverBaseBranch(cwd)).toBe(DEFAULT_BRANCH);
+
+    execFileSync.mockReset();
+    execFileSync
       .mockImplementationOnce(() => {
         throw new Error(NO_REMOTE_ERROR_MESSAGE);
       })
@@ -149,8 +157,8 @@ describe('init discovery', () => {
       .mockReturnValueOnce('');
     expect(init.discoverBaseBranch(cwd)).toBe('master');
 
-    execSync.mockReset();
-    execSync.mockImplementation(() => {
+    execFileSync.mockReset();
+    execFileSync.mockImplementation(() => {
       throw new Error('missing');
     });
     expect(init.discoverBaseBranch(cwd)).toBe(DEFAULT_BRANCH);
@@ -163,7 +171,7 @@ describe('runInit', () => {
     const selectedThreshold = 95;
     writeProjectFile(cwd, COMMON_LCOV_FILE, LCOV_CONTENT);
     writePackageJson(cwd, { scripts: { test: 'jest' } });
-    execSync.mockReturnValue(`${DEFAULT_BRANCH}\n`);
+    execFileSync.mockReturnValue(remoteShowOutput(DEFAULT_BRANCH));
     mockAnswers('bad', String(selectedThreshold), MISSING_LCOV_PATH, '', '3', '1');
     jest.spyOn(console, 'log').mockImplementation(() => {});
 
@@ -185,7 +193,7 @@ describe('runInit', () => {
     const absoluteLcovPath = projectPath(cwd, CUSTOM_LCOV_FILE);
     writeFileSync(absoluteLcovPath, LCOV_CONTENT);
     writePackageJson(cwd, {});
-    execSync.mockReturnValue(`${DEFAULT_BRANCH}\n`);
+    execFileSync.mockReturnValue(remoteShowOutput(DEFAULT_BRANCH));
     mockAnswers(String(DEFAULT_THRESHOLD), absoluteLcovPath, '');
     jest.spyOn(console, 'log').mockImplementation(() => {});
 
@@ -199,7 +207,7 @@ describe('runInit', () => {
     writePackageJson(cwd, {
       scripts: { [COVERAGE_SCRIPT_NAME]: 'jest --coverage' },
     });
-    execSync.mockReturnValue(`${DEFAULT_BRANCH}\n`);
+    execFileSync.mockReturnValue(remoteShowOutput(DEFAULT_BRANCH));
     mockAnswers('', '', '2', 'maybe', 'yes');
     jest.spyOn(console, 'log').mockImplementation(() => {});
 
@@ -218,7 +226,7 @@ describe('runInit', () => {
     writePackageJson(cwd, {
       scripts: { [COVERAGE_SCRIPT_NAME]: EXISTING_SCRIPT_COMMAND },
     });
-    execSync.mockReturnValue(`${DEFAULT_BRANCH}\n`);
+    execFileSync.mockReturnValue(remoteShowOutput(DEFAULT_BRANCH));
     mockAnswers(String(selectedThreshold), '', '1', 'maybe', 'yes', 'no');
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -239,7 +247,7 @@ describe('runInit', () => {
     writePackageJson(cwd, {
       scripts: { [COVERAGE_SCRIPT_NAME]: EXISTING_SCRIPT_COMMAND },
     });
-    execSync.mockReturnValue(`${DEFAULT_BRANCH}\n`);
+    execFileSync.mockReturnValue(remoteShowOutput(DEFAULT_BRANCH));
     mockAnswers('88', '', '1', 'no', 'no');
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const log = jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -258,7 +266,7 @@ describe('runInit', () => {
   test('closes the questioner when package JSON cannot be parsed', async () => {
     const cwd = makeTempProject();
     writeProjectFile(cwd, CONFIG_FILES.PACKAGE_JSON_FILE, '{');
-    execSync.mockReturnValue(`${DEFAULT_BRANCH}\n`);
+    execFileSync.mockReturnValue(remoteShowOutput(DEFAULT_BRANCH));
     mockAnswers(String(DEFAULT_THRESHOLD), '', '2');
     jest.spyOn(console, 'log').mockImplementation(() => {});
 

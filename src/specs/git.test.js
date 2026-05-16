@@ -13,22 +13,24 @@ import {
   SOURCE_FILE,
 } from './helpers/fixtures.js';
 
-const execSync = jest.fn();
 const execFileSync = jest.fn();
 
 jest.unstable_mockModule('node:child_process', () => ({
-  execSync,
   execFileSync,
 }));
 
 const git = await import('../git.js');
 
-function fetchCommand(branch) {
-  return `git fetch origin ${branch}:${branch} --quiet`;
+function remoteShowOutput(branch) {
+  return [`* remote origin`, `  Fetch URL: git@example.com/repo.git`, `  HEAD branch: ${branch}`].join('\n');
 }
 
-function setOriginHeadCommand(branch) {
-  return `git remote set-head origin ${branch}`;
+function fetchCall(branch) {
+  return ['git', ['fetch', 'origin', `${branch}:${branch}`, '--quiet'], { stdio: 'ignore' }];
+}
+
+function setOriginHeadCall(branch) {
+  return ['git', ['remote', 'set-head', 'origin', branch], { stdio: 'ignore' }];
 }
 
 function diffFixture() {
@@ -48,20 +50,19 @@ function diffFixture() {
 }
 
 beforeEach(() => {
-  execSync.mockReset();
   execFileSync.mockReset();
   jest.spyOn(console, 'log').mockImplementation(() => {});
 });
 
 describe('git', () => {
   test('resolves remote default branch with fallback for empty output and errors', () => {
-    execSync.mockReturnValueOnce(`${DEFAULT_BRANCH}\n`);
+    execFileSync.mockReturnValueOnce(remoteShowOutput(DEFAULT_BRANCH));
     expect(git.getRemoteDefaultBranch()).toBe(DEFAULT_BRANCH);
 
-    execSync.mockReturnValueOnce('\n');
+    execFileSync.mockReturnValueOnce('\n');
     expect(git.getRemoteDefaultBranch()).toBe(DEFAULT_BRANCH);
 
-    execSync.mockImplementationOnce(() => {
+    execFileSync.mockImplementationOnce(() => {
       throw new Error(NO_REMOTE_ERROR_MESSAGE);
     });
     expect(git.getRemoteDefaultBranch()).toBe(DEFAULT_BRANCH);
@@ -69,10 +70,10 @@ describe('git', () => {
 
   test('fetches branch successfully and retries by setting origin head once', () => {
     git.fetchBranch(DEVELOP_BRANCH);
-    expect(execSync).toHaveBeenCalledWith(fetchCommand(DEVELOP_BRANCH), { stdio: 'ignore' });
+    expect(execFileSync).toHaveBeenCalledWith(...fetchCall(DEVELOP_BRANCH));
 
-    execSync.mockReset();
-    execSync
+    execFileSync.mockReset();
+    execFileSync
       .mockImplementationOnce(() => {
         throw new Error('fetch failed');
       })
@@ -81,15 +82,15 @@ describe('git', () => {
 
     git.fetchBranch(RELEASE_BRANCH);
 
-    expect(execSync.mock.calls.map(([command]) => command)).toEqual([
-      fetchCommand(RELEASE_BRANCH),
-      setOriginHeadCommand(RELEASE_BRANCH),
-      fetchCommand(RELEASE_BRANCH),
+    expect(execFileSync.mock.calls).toEqual([
+      fetchCall(RELEASE_BRANCH),
+      setOriginHeadCall(RELEASE_BRANCH),
+      fetchCall(RELEASE_BRANCH),
     ]);
   });
 
   test('throws when fetch retry fails', () => {
-    execSync.mockImplementation(() => {
+    execFileSync.mockImplementation(() => {
       throw new Error('failed');
     });
 
@@ -98,13 +99,13 @@ describe('git', () => {
 
   test('lists changed files and reports git errors', () => {
     const changedFiles = [SOURCE_FILE, README_FILE];
-    execSync.mockReturnValueOnce(`${changedFiles.join('\n')}\n`);
+    execFileSync.mockReturnValueOnce(`${changedFiles.join('\n')}\n`);
     expect(git.getChangedFiles(DEFAULT_BRANCH)).toEqual(changedFiles);
 
-    execSync.mockReturnValueOnce('\n');
+    execFileSync.mockReturnValueOnce('\n');
     expect(git.getChangedFiles(DEFAULT_BRANCH)).toEqual([]);
 
-    execSync.mockImplementationOnce(() => {
+    execFileSync.mockImplementationOnce(() => {
       throw new Error('bad diff');
     });
     expect(() => git.getChangedFiles(DEFAULT_BRANCH)).toThrow('Failed to get changed files: bad diff');
@@ -139,10 +140,10 @@ describe('git', () => {
   });
 
   test('detects dirty and clean git status', () => {
-    execSync.mockReturnValueOnce(` M ${SOURCE_FILE}\n`);
+    execFileSync.mockReturnValueOnce(` M ${SOURCE_FILE}\n`);
     expect(git.isDirty()).toBe(true);
 
-    execSync.mockReturnValueOnce('\n');
+    execFileSync.mockReturnValueOnce('\n');
     expect(git.isDirty()).toBe(false);
   });
 });

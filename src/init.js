@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative } from 'node:path';
@@ -64,7 +64,7 @@ export function discoverLcovPath(cwd = process.cwd()) {
 
 function branchExists(branch, cwd) {
   try {
-    execSync(`git rev-parse --verify ${branch}`, {
+    execFileSync('git', ['rev-parse', '--verify', branch], {
       cwd,
       stdio: 'ignore',
     });
@@ -74,13 +74,20 @@ function branchExists(branch, cwd) {
   }
 }
 
+function parseRemoteHeadBranch(output) {
+  const headBranchLine = output.split('\n').find((line) => line.trim().startsWith('HEAD branch:'));
+
+  return headBranchLine?.split(':').at(1)?.trim() ?? '';
+}
+
 export function discoverBaseBranch(cwd = process.cwd()) {
   try {
-    const branch = execSync("git remote show origin | grep 'HEAD branch' | cut -d' ' -f5", {
+    const output = execFileSync('git', ['remote', 'show', 'origin'], {
       cwd,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'ignore'],
-    }).trim();
+    });
+    const branch = parseRemoteHeadBranch(output);
 
     if (branch) {
       return branch;
