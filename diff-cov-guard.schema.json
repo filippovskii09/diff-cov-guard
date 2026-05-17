@@ -31,6 +31,31 @@
     "failOnEmpty": {
       "type": "boolean",
       "description": "Fail when the LCOV file is missing or empty."
+    },
+    "comment": {
+      "type": "object",
+      "description": "PR/MR coverage comment behavior.",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Publish or update a stable PR/MR coverage comment."
+        },
+        "maxFiles": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum files shown in the PR/MR comment."
+        },
+        "maxLinesPerFile": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Maximum uncovered lines shown per file in the PR/MR comment."
+        },
+        "failOnError": {
+          "type": "boolean",
+          "description": "Fail the guard when publishing the PR/MR comment fails."
+        }
+      }
     }
   }
 }

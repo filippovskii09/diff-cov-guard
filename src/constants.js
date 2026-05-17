@@ -29,6 +29,21 @@ export const ARGS_OPTIONS = {
   'fail-on-empty': {
     type: 'boolean',
   },
+  comment: {
+    type: 'boolean',
+  },
+  'no-comment': {
+    type: 'boolean',
+  },
+  'comment-max-files': {
+    type: 'string',
+  },
+  'comment-max-lines-per-file': {
+    type: 'string',
+  },
+  'comment-fail-on-error': {
+    type: 'boolean',
+  },
   help: {
     type: 'boolean',
     short: 'h',
@@ -37,6 +52,27 @@ export const ARGS_OPTIONS = {
     type: 'boolean',
     short: 'v',
   },
+};
+
+export const COMMENT_MARKER = '<!-- diff-cov-guard:coverage-comment -->';
+
+export const COMMENT_STATUSES = {
+  PASSED: 'passed',
+  FAILED: 'failed',
+  SKIPPED: 'skipped',
+};
+
+export const COMMENT_REASONS = {
+  NO_CHANGED_FILES: 'No changed files.',
+  ONLY_NON_SOURCE_FILES: 'Only non-source files changed.',
+  NO_EXECUTABLE_CHANGED_LINES: 'No executable changed lines.',
+  LCOV_EMPTY_OR_MISSING: 'LCOV file is missing or empty.',
+};
+
+export const COMMENT_DEFAULTS = {
+  maxFiles: 10,
+  maxLinesPerFile: 20,
+  failOnError: false,
 };
 
 export const CONFIG_FILES = {

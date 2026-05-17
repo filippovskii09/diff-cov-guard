@@ -46,7 +46,12 @@ Recommended `.diffcovguardrc`:
   "$schema": "https://raw.githubusercontent.com/filippovskii09/diff-cov-guard/main/diff-cov-guard.schema.json",
   "threshold": 90,
   "lcovPath": "./coverage/lcov.info",
-  "failOnEmpty": true
+  "failOnEmpty": true,
+  "comment": {
+    "maxFiles": 10,
+    "maxLinesPerFile": 20,
+    "failOnError": false
+  }
 }
 ```
 
@@ -80,6 +85,16 @@ With flags:
 npx diff-cov-guard --threshold 90 --lcov ./coverage/lcov.info --fail-on-empty
 ```
 
+PR/MR comments are enabled automatically in GitHub Actions and GitLab merge request pipelines. Local runs do not publish
+comments unless you pass `--comment`.
+
+Comment flags:
+
+```sh
+npx diff-cov-guard --comment --comment-max-files 10 --comment-max-lines-per-file 20
+npx diff-cov-guard --no-comment
+```
+
 ## Use In GitHub Actions
 
 ```yaml
@@ -91,6 +106,10 @@ on:
 jobs:
   diff-coverage:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
         with:
@@ -106,6 +125,9 @@ jobs:
 
 `fetch-depth: 0` is important because the guard compares the pull request branch with its base branch.
 
+For GitHub PR comments, the guard uses `DIFF_COV_GUARD_GITHUB_TOKEN` first and falls back to `GITHUB_TOKEN`. The comment
+is a single stable issue comment that is updated on each run.
+
 ## Use In GitLab CI
 
 ```yaml
@@ -119,6 +141,21 @@ diff_coverage:
   rules:
     - if: $CI_MERGE_REQUEST_ID
 ```
+
+For GitLab MR comments, set `DIFF_COV_GUARD_GITLAB_TOKEN` or `GITLAB_TOKEN` with permission to create and update merge
+request notes. The guard does not rely on `CI_JOB_TOKEN` for writing notes.
+
+## PR/MR Comments
+
+When comments are enabled, `diff-cov-guard` publishes a short Markdown summary with:
+
+- pass, fail, or skipped status;
+- diff coverage, required threshold, and covered executable line count;
+- a per-file table capped by `comment.maxFiles`;
+- uncovered changed executable lines capped by `comment.maxLinesPerFile`.
+
+Publishing failures are warnings by default and do not change the coverage exit code. Set `comment.failOnError: true` or
+pass `--comment-fail-on-error` if CI should fail when the API call cannot publish the comment.
 
 ## Output
 

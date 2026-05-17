@@ -1,4 +1,19 @@
+import { readFileSync } from 'node:fs';
+
 import { ENV_TYPES } from './constants.js';
+
+function readGitHubPullRequestNumber(eventPath) {
+  if (!eventPath) {
+    return null;
+  }
+
+  try {
+    const event = JSON.parse(readFileSync(eventPath, 'utf8'));
+    return event.pull_request?.number ?? event.number ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Detects the execution environment from supported CI variables.
@@ -16,6 +31,12 @@ export const getEnvironment = () => {
       isCI: true,
       baseBranch: process.env.GITHUB_BASE_REF,
       currentBranch: process.env.GITHUB_REF_NAME,
+      apiUrl: process.env.GITHUB_API_URL,
+      repository: process.env.GITHUB_REPOSITORY,
+      pullRequestNumber: readGitHubPullRequestNumber(process.env.GITHUB_EVENT_PATH),
+      commitSha: process.env.GITHUB_SHA,
+      runId: process.env.GITHUB_RUN_ID,
+      serverUrl: process.env.GITHUB_SERVER_URL,
     };
   }
 
@@ -24,7 +45,13 @@ export const getEnvironment = () => {
       type: ENV_TYPES.GITLAB,
       isCI: true,
       baseBranch: process.env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME,
-      currentBranch: process.env.GITLAB_COMMIT_REF_NAME,
+      currentBranch: process.env.CI_COMMIT_REF_NAME ?? process.env.GITLAB_COMMIT_REF_NAME,
+      apiUrl: process.env.CI_API_V4_URL,
+      projectId: process.env.CI_PROJECT_ID,
+      projectUrl: process.env.CI_PROJECT_URL,
+      mergeRequestIid: process.env.CI_MERGE_REQUEST_IID,
+      commitSha: process.env.CI_COMMIT_SHA,
+      pipelineUrl: process.env.CI_PIPELINE_URL,
     };
   }
 

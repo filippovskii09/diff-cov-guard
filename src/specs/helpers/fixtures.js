@@ -1,6 +1,14 @@
-import { ARGS_OPTIONS, CONFIG_FILES, DEFAULT_BRANCH, ENV_TYPES } from '../../constants.js';
+import {
+  ARGS_OPTIONS,
+  COMMENT_DEFAULTS,
+  COMMENT_REASONS,
+  COMMENT_STATUSES,
+  CONFIG_FILES,
+  DEFAULT_BRANCH,
+  ENV_TYPES,
+} from '../../constants.js';
 
-export { ARGS_OPTIONS, CONFIG_FILES, DEFAULT_BRANCH, ENV_TYPES };
+export { ARGS_OPTIONS, COMMENT_DEFAULTS, COMMENT_REASONS, COMMENT_STATUSES, CONFIG_FILES, DEFAULT_BRANCH, ENV_TYPES };
 
 export const DEFAULT_THRESHOLD = Number(ARGS_OPTIONS.threshold.default);
 export const DEFAULT_LCOV_PATH = ARGS_OPTIONS.lcov.default;
@@ -24,6 +32,19 @@ export const LCOV_CONTENT = 'lcov';
 export const NO_REMOTE_ERROR_MESSAGE = 'no remote';
 export const PERMISSION_ERROR_MESSAGE = 'denied';
 export const PERMISSION_ERROR_CODE = 'EACCES';
+export const GITHUB_API_URL = 'https://api.github.com';
+export const GITHUB_REPOSITORY = 'owner/repo';
+export const GITHUB_SERVER_URL = 'https://github.com';
+export const GITHUB_PULL_REQUEST_NUMBER = 12;
+export const GITHUB_COMMENT_ID = 99;
+export const GITHUB_COMMIT_SHA = 'abc123';
+export const GITHUB_RUN_ID = '456';
+export const GITLAB_API_URL = 'https://gitlab.example.com/api/v4';
+export const GITLAB_PROJECT_ID = 'group/project';
+export const GITLAB_PROJECT_URL = 'https://gitlab.example.com/group/project';
+export const GITLAB_MERGE_REQUEST_IID = 34;
+export const GITLAB_COMMIT_SHA = 'def456';
+export const COMMENT_BODY = 'new body';
 
 export function permissionDeniedError(message = PERMISSION_ERROR_MESSAGE) {
   const error = new Error(message);
@@ -60,13 +81,24 @@ export function diffCoverage(overrides = {}) {
   };
 }
 
+export function commentConfig(overrides = {}) {
+  return {
+    enabled: false,
+    ...COMMENT_DEFAULTS,
+    ...overrides,
+  };
+}
+
 export function runConfig(overrides = {}) {
+  const { comment, ...rest } = overrides;
+
   return {
     threshold: DEFAULT_THRESHOLD,
     lcovPath: DEFAULT_LCOV_PATH,
     rootDir: process.cwd(),
     failOnEmpty: false,
-    ...overrides,
+    ...rest,
+    comment: commentConfig(comment),
   };
 }
 
