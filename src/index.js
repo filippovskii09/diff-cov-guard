@@ -12,7 +12,7 @@ import { buildCommentBody, publishCoverageComment } from './comment.js';
 import { getEnvironment } from './environment.js';
 import { fetchBranch, getChangedFiles, getChangedLines, getRemoteDefaultBranch } from './git.js';
 import { loadConfig } from './config.js';
-import { isLcovEmptyOrMissing, parseLcov } from './lcov.js';
+import { parseLcov } from './lcov.js';
 
 function colorize(color, message) {
   return `${color}${message}${CONSOLE_COLORS.RESET}`;
@@ -209,7 +209,13 @@ export async function run(args, lifecycle = process) {
       return;
     }
 
-    if (isLcovEmptyOrMissing(config.lcovPath)) {
+    const lcovResult = await parseLcov(config.lcovPath, {
+      repoRoot: process.cwd(),
+      rootDir: config.rootDir,
+      changedLinesByFile,
+    });
+
+    if (lcovResult.emptyOrMissing) {
       const exitCode = config.failOnEmpty ? EXIT_CODES.FAILURE : EXIT_CODES.SUCCESS;
       const status = config.failOnEmpty ? COMMENT_STATUSES.FAILED : COMMENT_STATUSES.SKIPPED;
       console.warn('WARN: LCOV file is empty or missing. Skipping coverage check.');
@@ -217,11 +223,11 @@ export async function run(args, lifecycle = process) {
       return;
     }
 
-    const coverageByFile = parseLcov(config.lcovPath, {
-      repoRoot: process.cwd(),
-      rootDir: config.rootDir,
-    });
-    const diffCoverage = calculateDiffCoverage(changedLinesByFile, coverageByFile);
+    if (lcovResult.noRecords) {
+      throw new Error('Invalid LCOV format: no records found');
+    }
+
+    const diffCoverage = calculateDiffCoverage(changedLinesByFile, lcovResult.records);
 
     printFinalReport(config, diffCoverage);
 

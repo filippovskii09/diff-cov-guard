@@ -32,7 +32,6 @@ const git = {
 };
 const config = { loadConfig: jest.fn() };
 const lcov = {
-  isLcovEmptyOrMissing: jest.fn(),
   parseLcov: jest.fn(),
 };
 const coverage = {
@@ -70,8 +69,11 @@ beforeEach(() => {
   git.getRemoteDefaultBranch.mockReturnValue(DEFAULT_BRANCH);
   git.getChangedFiles.mockReturnValue([SOURCE_FILE]);
   git.getChangedLines.mockReturnValue(changedLinesMap([[SOURCE_FILE, [1]]]));
-  lcov.isLcovEmptyOrMissing.mockReturnValue(false);
-  lcov.parseLcov.mockReturnValue(new Map());
+  lcov.parseLcov.mockResolvedValue({
+    emptyOrMissing: false,
+    noRecords: false,
+    records: new Map(),
+  });
   coverage.calculateDiffCoverage.mockReturnValue(diffCoverage());
   coverage.passesThreshold.mockReturnValue(true);
   comment.buildCommentBody.mockReturnValue('comment body');
@@ -160,7 +162,11 @@ describe('run', () => {
   });
 
   test('honors failOnEmpty for missing or empty LCOV', async () => {
-    lcov.isLcovEmptyOrMissing.mockReturnValue(true);
+    lcov.parseLcov.mockResolvedValue({
+      emptyOrMissing: true,
+      noRecords: false,
+      records: new Map(),
+    });
 
     await index.run({}, lifecycle);
     expect(lifecycle.exit).toHaveBeenCalledWith(0);
@@ -183,6 +189,7 @@ describe('run', () => {
     expect(lcov.parseLcov).toHaveBeenCalledWith(DEFAULT_LCOV_PATH, {
       repoRoot: process.cwd(),
       rootDir: process.cwd(),
+      changedLinesByFile: changedLinesMap([[SOURCE_FILE, [1]]]),
     });
     expect(logs.table).toHaveBeenCalled();
     expect(logs.log).toHaveBeenCalledWith(expect.stringContaining('Success: Diff Coverage is 100%'));
