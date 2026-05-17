@@ -99,6 +99,23 @@ describe('lcov', () => {
     expect([...records.get(SOURCE_FILE).lines.entries()]).toEqual([[LCOV_MISS_LINE, 0]]);
   });
 
+  test('parses diff-filtered mode with internal changed-line ranges', async () => {
+    const lcovPath = tempFile(
+      lcovRecord(SOURCE_FILE, [
+        [LCOV_HIT_LINE, 1],
+        [LCOV_MISS_LINE, 0],
+      ]).join('\n')
+    );
+
+    const { records } = await parseLcov(lcovPath, {
+      repoRoot: process.cwd(),
+      rootDir: process.cwd(),
+      changedLinesByFile: new Map([[SOURCE_FILE, [{ start: LCOV_MISS_LINE, end: LCOV_MISS_LINE }]]]),
+    });
+
+    expect([...records.get(SOURCE_FILE).lines.entries()]).toEqual([[LCOV_MISS_LINE, 0]]);
+  });
+
   test('reports no records and throws on malformed records', async () => {
     const noRecordsLcov = 'TN:\n';
     const emptySourceRecord = 'SF:   \n';
