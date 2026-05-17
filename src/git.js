@@ -40,6 +40,10 @@ function buildGitTimeoutError(args, timeoutMs) {
   return new Error(`Git command timed out after ${timeoutMs}ms (${formatGitCommand(args)})`);
 }
 
+function remoteTrackingRef(branch) {
+  return `refs/remotes/origin/${branch}`;
+}
+
 function startGit(args, timeoutMs = TIMEOUT_DEFAULTS.gitTimeoutMs) {
   const child = spawn('git', args, {
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -101,6 +105,28 @@ async function runGitText(args, timeoutMs) {
   return stdout;
 }
 
+async function assertValidBranch(branch, timeoutMs) {
+  try {
+    await runGitText(['check-ref-format', '--branch', branch], timeoutMs);
+  } catch (error) {
+    throw new Error(`Invalid branch/ref "${branch}": ${error.message}`, { cause: error });
+  }
+}
+
+function parseNullDelimitedOutput(output) {
+  if (!output) {
+    return [];
+  }
+
+  const values = output.split('\0');
+
+  if (values.at(-1) === '') {
+    values.pop();
+  }
+
+  return values;
+}
+
 function readInteger(value, startIndex) {
   let index = startIndex;
 
@@ -149,13 +175,15 @@ export async function getRemoteDefaultBranch(timeoutMs = TIMEOUT_DEFAULTS.gitTim
  * @returns {Promise<void>} Resolves when the branch is available locally.
  */
 export async function fetchBranch(branch, timeoutMs = TIMEOUT_DEFAULTS.gitTimeoutMs) {
+  await assertValidBranch(branch, timeoutMs);
+
   try {
     console.log(`Fetching ${branch}`);
-    await runGitText(['fetch', 'origin', `${branch}:${branch}`, '--quiet'], timeoutMs);
+    await runGitText(['fetch', 'origin', `${branch}:${remoteTrackingRef(branch)}`, '--quiet'], timeoutMs);
   } catch {
     try {
       await runGitText(['remote', 'set-head', 'origin', branch], timeoutMs);
-      await runGitText(['fetch', 'origin', `${branch}:${branch}`, '--quiet'], timeoutMs);
+      await runGitText(['fetch', 'origin', `${branch}:${remoteTrackingRef(branch)}`, '--quiet'], timeoutMs);
     } catch (error) {
       throw new Error(`Failed to fetch ${branch}: ${error.message}`, { cause: error });
     }
@@ -174,9 +202,9 @@ export async function fetchBranch(branch, timeoutMs = TIMEOUT_DEFAULTS.gitTimeou
  */
 export async function getChangedFiles(baseBranch, timeoutMs = TIMEOUT_DEFAULTS.gitTimeoutMs) {
   try {
-    const output = (await runGitText(['diff', '--name-only', `${baseBranch}...HEAD`], timeoutMs)).trim();
+    const output = await runGitText(['diff', '--name-only', '-z', `${baseBranch}...HEAD`], timeoutMs);
 
-    return output ? output.split('\n') : [];
+    return parseNullDelimitedOutput(output);
   } catch (error) {
     throw new Error(`Failed to get changed files: ${error.message}`, { cause: error });
   }

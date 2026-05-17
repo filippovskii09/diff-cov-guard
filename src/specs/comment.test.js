@@ -139,6 +139,54 @@ describe('comment body', () => {
     expect(body).toContain(reason);
     expect(body).not.toContain('| Metric | Value |');
   });
+
+  test('escapes markdown paths in tables, code spans, and GitHub line URLs', () => {
+    const specialPath = 'src/a|b `[x]` #ф.js';
+    const body = buildCommentBody({
+      status: COMMENT_STATUSES.FAILED,
+      config: runConfig(),
+      diffCoverage: diffCoverage({
+        files: [
+          fileResult({
+            filePath: specialPath,
+            changedLines: [7],
+            executableLines: [7],
+            coveredLines: [],
+            uncoveredLines: [7],
+          }),
+        ],
+      }),
+      env: githubEnv(),
+    });
+
+    expect(body).toContain('| src/a\\|b `[x]` #ф.js | 1 | 0 | 0% |');
+    expect(body).toContain('- `src/a|b \\`[x]\\` #ф.js`:');
+    expect(body).toContain(
+      `[7](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${GITHUB_COMMIT_SHA}/src/a%7Cb%20%60%5Bx%5D%60%20%23%D1%84.js#L7)`
+    );
+  });
+
+  test('escapes fallback uncovered line labels without URLs', () => {
+    const specialPath = 'src/a`b #x.js';
+    const body = buildCommentBody({
+      status: COMMENT_STATUSES.FAILED,
+      config: runConfig(),
+      diffCoverage: diffCoverage({
+        files: [
+          fileResult({
+            filePath: specialPath,
+            changedLines: [3],
+            executableLines: [3],
+            coveredLines: [],
+            uncoveredLines: [3],
+          }),
+        ],
+      }),
+      env: { type: ENV_TYPES.LOCAL },
+    });
+
+    expect(body).toContain('- `src/a\\`b #x.js`: `src/a\\`b #x.js:3`');
+  });
 });
 
 describe('publishCoverageComment', () => {

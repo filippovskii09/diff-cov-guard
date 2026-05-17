@@ -41,7 +41,15 @@ function remoteShowOutput(branch) {
 }
 
 function fetchCall(branch) {
-  return ['git', ['fetch', 'origin', `${branch}:${branch}`, '--quiet'], { stdio: ['ignore', 'pipe', 'pipe'] }];
+  return [
+    'git',
+    ['fetch', 'origin', `${branch}:refs/remotes/origin/${branch}`, '--quiet'],
+    { stdio: ['ignore', 'pipe', 'pipe'] },
+  ];
+}
+
+function checkRefFormatCall(branch) {
+  return ['git', ['check-ref-format', '--branch', branch], { stdio: ['ignore', 'pipe', 'pipe'] }];
 }
 
 function setOriginHeadCall(branch) {
@@ -109,10 +117,12 @@ describe('git', () => {
 
   test('fetches branch successfully and retries by setting origin head once', async () => {
     mockGitProcess({});
+    mockGitProcess({});
     await git.fetchBranch(DEVELOP_BRANCH);
-    expect(spawn).toHaveBeenCalledWith(...fetchCall(DEVELOP_BRANCH));
+    expect(spawn.mock.calls).toEqual([checkRefFormatCall(DEVELOP_BRANCH), fetchCall(DEVELOP_BRANCH)]);
 
     spawn.mockReset();
+    mockGitProcess({});
     mockGitProcess({ stderr: 'fetch failed', code: 1 });
     mockGitProcess({});
     mockGitProcess({});
@@ -120,6 +130,7 @@ describe('git', () => {
     await git.fetchBranch(RELEASE_BRANCH);
 
     expect(spawn.mock.calls).toEqual([
+      checkRefFormatCall(RELEASE_BRANCH),
       fetchCall(RELEASE_BRANCH),
       setOriginHeadCall(RELEASE_BRANCH),
       fetchCall(RELEASE_BRANCH),
@@ -127,6 +138,7 @@ describe('git', () => {
   });
 
   test('throws when fetch retry fails with stderr context', async () => {
+    mockGitProcess({});
     mockGitProcess({ stderr: 'failed once', code: 1 });
     mockGitProcess({ stderr: 'failed twice', code: 1 });
 
@@ -136,12 +148,26 @@ describe('git', () => {
     await expect(promise).rejects.toThrow('failed twice');
   });
 
-  test('lists changed files and reports git errors with stderr context', async () => {
-    const changedFiles = [SOURCE_FILE, README_FILE];
-    mockGitProcess({ stdout: `${changedFiles.join('\n')}\n` });
-    await expect(git.getChangedFiles(DEFAULT_BRANCH)).resolves.toEqual(changedFiles);
+  test('rejects invalid branch refs before fetching', async () => {
+    const invalidBranch = 'bad branch';
+    mockGitProcess({ stderr: 'fatal: invalid ref', code: 1 });
 
-    mockGitProcess({ stdout: '\n' });
+    await expect(git.fetchBranch(invalidBranch)).rejects.toThrow(`Invalid branch/ref "${invalidBranch}"`);
+
+    expect(spawn.mock.calls).toEqual([checkRefFormatCall(invalidBranch)]);
+  });
+
+  test('lists changed files and reports git errors with stderr context', async () => {
+    const changedFiles = [SOURCE_FILE, 'src/file with spaces [x] #ф.js', README_FILE];
+    mockGitProcess({ stdout: `${changedFiles.join('\0')}\0` });
+    await expect(git.getChangedFiles(DEFAULT_BRANCH)).resolves.toEqual(changedFiles);
+    expect(spawn).toHaveBeenCalledWith(
+      'git',
+      ['diff', '--name-only', '-z', `${DEFAULT_BRANCH}...HEAD`],
+      { stdio: ['ignore', 'pipe', 'pipe'] }
+    );
+
+    mockGitProcess({ stdout: '' });
     await expect(git.getChangedFiles(DEFAULT_BRANCH)).resolves.toEqual([]);
 
     mockGitProcess({ stderr: 'bad diff', code: 1 });
