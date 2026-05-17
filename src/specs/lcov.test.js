@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { afterEach, describe, expect, test } from '@jest/globals';
 
 import { isLcovEmptyOrMissing, normalizePath, parseLcov } from '../lcov.js';
-import { SECOND_SOURCE_FILE, SOURCE_FILE } from './helpers/fixtures.js';
+import { README_FILE, SECOND_SOURCE_FILE, SOURCE_FILE, changedLinesMap } from './helpers/fixtures.js';
 
 const REPO_ROOT = resolve('/repo');
 const NORMALIZED_SOURCE_FILE = 'src/file.js';
@@ -48,7 +48,7 @@ describe('lcov', () => {
     expect(normalizePath('src\\file.js', { repoRoot: REPO_ROOT })).toBe(NORMALIZED_SOURCE_FILE);
   });
 
-  test('detects missing, empty, and whitespace-only LCOV files', () => {
+  test('detects missing, empty, and whitespace-only LCOV files', async () => {
     const missingLcovPath = join(tmpdir(), MISSING_LCOV_FILE);
     const whitespaceOnlyLcov = ' \n\t ';
     const validLcov = lcovRecord(SOURCE_FILE, [[LCOV_HIT_LINE, 1]]).join('\n');
@@ -57,9 +57,12 @@ describe('lcov', () => {
     expect(isLcovEmptyOrMissing(tempFile(''))).toBe(true);
     expect(isLcovEmptyOrMissing(tempFile(whitespaceOnlyLcov))).toBe(true);
     expect(isLcovEmptyOrMissing(tempFile(validLcov))).toBe(false);
+
+    await expect(parseLcov(missingLcovPath)).resolves.toMatchObject({ emptyOrMissing: true });
+    await expect(parseLcov(tempFile(whitespaceOnlyLcov))).resolves.toMatchObject({ emptyOrMissing: true });
   });
 
-  test('parses multiple records and finalizes the last record without end_of_record', () => {
+  test('parses multiple records and finalizes the last record without end_of_record', async () => {
     const lcovPath = tempFile(
       [
         ...lcovRecord(SOURCE_FILE, [[LCOV_HIT_LINE, 1]]),
@@ -67,24 +70,45 @@ describe('lcov', () => {
       ].join('\n')
     );
 
-    const records = parseLcov(lcovPath, { repoRoot: process.cwd(), rootDir: process.cwd() });
+    const { records } = await parseLcov(lcovPath, { repoRoot: process.cwd(), rootDir: process.cwd() });
 
     expect([...records.keys()]).toEqual([SOURCE_FILE, SECOND_SOURCE_FILE]);
     expect(records.get(SOURCE_FILE).lines.get(LCOV_HIT_LINE)).toBe(1);
     expect(records.get(SECOND_SOURCE_FILE).lines.get(LCOV_MISS_LINE)).toBe(0);
   });
 
-  test('throws on missing files and malformed records', () => {
-    const missingLcovPath = join(tmpdir(), NOT_FOUND_LCOV_FILE);
+  test('parses only changed files and changed lines in diff-filtered mode', async () => {
+    const lcovPath = tempFile(
+      [
+        ...lcovRecord(SOURCE_FILE, [
+          [LCOV_HIT_LINE, 1],
+          [LCOV_MISS_LINE, 0],
+        ]),
+        ...lcovRecord(SECOND_SOURCE_FILE, [[LCOV_MISS_LINE, 0]]),
+        ...lcovRecord(README_FILE, [[LCOV_HIT_LINE, 1]]),
+      ].join('\n')
+    );
+
+    const { records } = await parseLcov(lcovPath, {
+      repoRoot: process.cwd(),
+      rootDir: process.cwd(),
+      changedLinesByFile: changedLinesMap([[SOURCE_FILE, [LCOV_MISS_LINE]]]),
+    });
+
+    expect([...records.keys()]).toEqual([SOURCE_FILE]);
+    expect([...records.get(SOURCE_FILE).lines.entries()]).toEqual([[LCOV_MISS_LINE, 0]]);
+  });
+
+  test('reports no records and throws on malformed records', async () => {
     const noRecordsLcov = 'TN:\n';
     const emptySourceRecord = 'SF:   \n';
     const emptyLineCoverageRecord = `SF:${SOURCE_FILE}\nDA:\n`;
     const invalidLineCoverageRecord = `SF:${SOURCE_FILE}\nDA:x,1\n`;
 
-    expect(() => parseLcov(missingLcovPath)).toThrow('LCOV file not found');
-    expect(() => parseLcov(tempFile(noRecordsLcov))).toThrow('no records found');
-    expect(() => parseLcov(tempFile(emptySourceRecord))).toThrow('empty SF record');
-    expect(() => parseLcov(tempFile(emptyLineCoverageRecord))).toThrow('malformed DA record');
-    expect(() => parseLcov(tempFile(invalidLineCoverageRecord))).toThrow('malformed DA record');
+    await expect(parseLcov(join(tmpdir(), NOT_FOUND_LCOV_FILE))).resolves.toMatchObject({ emptyOrMissing: true });
+    await expect(parseLcov(tempFile(noRecordsLcov))).resolves.toMatchObject({ noRecords: true });
+    await expect(parseLcov(tempFile(emptySourceRecord))).rejects.toThrow('empty SF record');
+    await expect(parseLcov(tempFile(emptyLineCoverageRecord))).rejects.toThrow('malformed DA record');
+    await expect(parseLcov(tempFile(invalidLineCoverageRecord))).rejects.toThrow('malformed DA record');
   });
 });
