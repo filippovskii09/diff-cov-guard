@@ -1,19 +1,121 @@
-import { execFileSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
+import { createInterface } from 'node:readline';
 
-import { DEFAULT_BRANCH } from './constants.js';
-
-const execFileConfig = {
-  encoding: 'utf8',
-  stdio: ['pipe', 'pipe', 'ignore'],
-};
+import { DEFAULT_BRANCH, TIMEOUT_DEFAULTS } from './constants.js';
 
 const GIT_DIFF_FILE_PREFIX = '+++ b/';
 const HUNK_HEADER_PREFIX = '@@';
+const GIT_OUTPUT_LIMIT = 1000000;
+const FORCE_KILL_DELAY_MS = 1000;
 
 function parseRemoteHeadBranch(output) {
   const headBranchLine = output.split('\n').find((line) => line.trim().startsWith('HEAD branch:'));
 
   return headBranchLine?.split(':').at(1)?.trim() ?? '';
+}
+
+function formatGitCommand(args) {
+  return `git ${args.join(' ')}`;
+}
+
+function appendBoundedOutput(currentOutput, chunk) {
+  if (currentOutput.length >= GIT_OUTPUT_LIMIT) {
+    return currentOutput;
+  }
+
+  const nextChunk = chunk.toString('utf8');
+  const remainingLength = GIT_OUTPUT_LIMIT - currentOutput.length;
+
+  return currentOutput + nextChunk.slice(0, remainingLength);
+}
+
+function buildGitError(args, code, stderr) {
+  const message = stderr.trim();
+  const suffix = message ? `: ${message}` : '';
+
+  return new Error(`Git command failed (${formatGitCommand(args)}) with exit code ${code}${suffix}`);
+}
+
+function buildGitTimeoutError(args, timeoutMs) {
+  return new Error(`Git command timed out after ${timeoutMs}ms (${formatGitCommand(args)})`);
+}
+
+function startGit(args, timeoutMs = TIMEOUT_DEFAULTS.gitTimeoutMs) {
+  const child = spawn('git', args, {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let stderr = '';
+  let timedOut = false;
+  let forceKillTimer;
+
+  child.stderr.on('data', (chunk) => {
+    stderr = appendBoundedOutput(stderr, chunk);
+  });
+
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    child.kill('SIGTERM');
+    forceKillTimer = setTimeout(() => {
+      child.kill('SIGKILL');
+    }, FORCE_KILL_DELAY_MS);
+  }, timeoutMs);
+
+  const wait = new Promise((resolve, reject) => {
+    child.once('error', (error) => {
+      clearTimeout(timeout);
+      clearTimeout(forceKillTimer);
+      reject(new Error(`Failed to start ${formatGitCommand(args)}: ${error.message}`, { cause: error }));
+    });
+
+    child.once('close', (code) => {
+      clearTimeout(timeout);
+      clearTimeout(forceKillTimer);
+
+      if (timedOut) {
+        reject(buildGitTimeoutError(args, timeoutMs));
+        return;
+      }
+
+      if (code !== 0) {
+        reject(buildGitError(args, code, stderr));
+        return;
+      }
+
+      resolve();
+    });
+  });
+
+  return { child, wait };
+}
+
+async function runGitText(args, timeoutMs) {
+  const { child, wait } = startGit(args, timeoutMs);
+  let stdout = '';
+
+  child.stdout.on('data', (chunk) => {
+    stdout = appendBoundedOutput(stdout, chunk);
+  });
+
+  await wait;
+
+  return stdout;
+}
+
+function readInteger(value, startIndex) {
+  let index = startIndex;
+
+  while (index < value.length && value[index] >= '0' && value[index] <= '9') {
+    index += 1;
+  }
+
+  if (index === startIndex) {
+    return null;
+  }
+
+  return {
+    number: Number(value.slice(startIndex, index)),
+    nextIndex: index,
+  };
 }
 
 /**
@@ -22,11 +124,12 @@ function parseRemoteHeadBranch(output) {
  * Falls back to the project default when Git cannot report the remote HEAD,
  * the command fails, or the resolved value is empty.
  *
- * @returns {string} Remote default branch name, or `DEFAULT_BRANCH` as a fallback.
+ * @param {number} [timeoutMs] - Git command timeout in milliseconds.
+ * @returns {Promise<string>} Remote default branch name, or `DEFAULT_BRANCH` as a fallback.
  */
-export function getRemoteDefaultBranch() {
+export async function getRemoteDefaultBranch(timeoutMs = TIMEOUT_DEFAULTS.gitTimeoutMs) {
   try {
-    const output = execFileSync('git', ['remote', 'show', 'origin'], execFileConfig);
+    const output = await runGitText(['remote', 'show', 'origin'], timeoutMs);
     const branch = parseRemoteHeadBranch(output);
     return branch || DEFAULT_BRANCH;
   } catch {
@@ -42,23 +145,22 @@ export function getRemoteDefaultBranch() {
  * state because that can produce false-positive coverage checks.
  *
  * @param {string} branch - Branch name expected to exist on the `origin` remote.
+ * @param {number} [timeoutMs] - Git command timeout in milliseconds.
+ * @returns {Promise<void>} Resolves when the branch is available locally.
  */
-export const fetchBranch = (branch) => {
-  const execFileOptions = {
-    stdio: 'ignore',
-  };
+export async function fetchBranch(branch, timeoutMs = TIMEOUT_DEFAULTS.gitTimeoutMs) {
   try {
     console.log(`Fetching ${branch}`);
-    execFileSync('git', ['fetch', 'origin', `${branch}:${branch}`, '--quiet'], execFileOptions);
+    await runGitText(['fetch', 'origin', `${branch}:${branch}`, '--quiet'], timeoutMs);
   } catch {
     try {
-      execFileSync('git', ['remote', 'set-head', 'origin', branch], execFileOptions);
-      execFileSync('git', ['fetch', 'origin', `${branch}:${branch}`, '--quiet'], execFileOptions);
+      await runGitText(['remote', 'set-head', 'origin', branch], timeoutMs);
+      await runGitText(['fetch', 'origin', `${branch}:${branch}`, '--quiet'], timeoutMs);
     } catch (error) {
-      throw new Error(`Failed to fetch ${branch}`, { cause: error });
+      throw new Error(`Failed to fetch ${branch}: ${error.message}`, { cause: error });
     }
   }
-};
+}
 
 /**
  * Lists files changed between a base branch and the current `HEAD`.
@@ -67,17 +169,18 @@ export const fetchBranch = (branch) => {
  * the current branch since it diverged from the base branch.
  *
  * @param {string} baseBranch - Branch or ref used as the comparison base.
- * @returns {string[]} Changed file paths relative to the repository root.
+ * @param {number} [timeoutMs] - Git command timeout in milliseconds.
+ * @returns {Promise<string[]>} Changed file paths relative to the repository root.
  */
-export const getChangedFiles = (baseBranch) => {
+export async function getChangedFiles(baseBranch, timeoutMs = TIMEOUT_DEFAULTS.gitTimeoutMs) {
   try {
-    const output = execFileSync('git', ['diff', '--name-only', `${baseBranch}...HEAD`], { encoding: 'utf8' }).trim();
+    const output = (await runGitText(['diff', '--name-only', `${baseBranch}...HEAD`], timeoutMs)).trim();
 
     return output ? output.split('\n') : [];
   } catch (error) {
     throw new Error(`Failed to get changed files: ${error.message}`, { cause: error });
   }
-};
+}
 
 /**
  * Creates the initial changed-lines map with one empty Set per changed file.
@@ -102,16 +205,31 @@ function createChangedLinesMap(changedFiles) {
  * @returns {number[]} Changed line numbers from the new-file side of the hunk.
  */
 function parseChangedLineRange(hunkHeader) {
-  const match = hunkHeader.match(/\+(\d+)(?:,(\d+))?/);
+  const plusIndex = hunkHeader.indexOf('+');
 
-  if (!match) {
+  if (plusIndex === -1) {
     return [];
   }
 
-  const startLine = Number(match[1]);
-  const lineCount = match[2] === undefined ? 1 : Number(match[2]);
+  const start = readInteger(hunkHeader, plusIndex + 1);
 
-  return Array.from({ length: lineCount }, (_, index) => startLine + index);
+  if (!start) {
+    return [];
+  }
+
+  let lineCount = 1;
+
+  if (hunkHeader[start.nextIndex] === ',') {
+    const count = readInteger(hunkHeader, start.nextIndex + 1);
+
+    if (!count) {
+      return [];
+    }
+
+    lineCount = count.number;
+  }
+
+  return Array.from({ length: lineCount }, (_value, index) => start.number + index);
 }
 
 /**
@@ -124,7 +242,7 @@ function parseChangedLineRange(hunkHeader) {
  */
 function addChangedLines(changedLinesByFile, filePath, hunkHeader) {
   const changedLines = parseChangedLineRange(hunkHeader);
-  const fileLines = changedLinesByFile.get(filePath);
+  const fileLines = changedLinesByFile.get(filePath) ?? new Set();
 
   for (const changedLine of changedLines) {
     fileLines.add(changedLine);
@@ -134,29 +252,25 @@ function addChangedLines(changedLinesByFile, filePath, hunkHeader) {
 }
 
 /**
- * Parses zero-context Git diff output into changed line numbers by file.
+ * Parses one zero-context Git diff line into changed line numbers by file.
  *
- * The parser tracks `+++ b/<file>` lines to know the current file, then reads
- * each following hunk header to collect added or modified line numbers.
- *
- * @param {string} output - Raw `git diff --unified=0` output.
+ * @param {string} line - One line from `git diff --unified=0` stdout.
+ * @param {string|null} currentFile - Current new-file path from the diff header.
  * @param {Map<string, Set<number>>} changedLinesByFile - Mutable result map.
- * @returns {void}
+ * @returns {string|null} Updated current file path.
  */
-function parseChangedLinesDiff(output, changedLinesByFile) {
-  let currentFile = null;
-
-  for (const line of output.split('\n')) {
-    if (line.startsWith(GIT_DIFF_FILE_PREFIX)) {
-      currentFile = line.slice(GIT_DIFF_FILE_PREFIX.length);
-      changedLinesByFile.set(currentFile, changedLinesByFile.get(currentFile) ?? new Set());
-      continue;
-    }
-
-    if (line.startsWith(HUNK_HEADER_PREFIX) && currentFile) {
-      addChangedLines(changedLinesByFile, currentFile, line);
-    }
+function parseChangedLinesDiffLine(line, currentFile, changedLinesByFile) {
+  if (line.startsWith(GIT_DIFF_FILE_PREFIX)) {
+    const filePath = line.slice(GIT_DIFF_FILE_PREFIX.length);
+    changedLinesByFile.set(filePath, changedLinesByFile.get(filePath) ?? new Set());
+    return filePath;
   }
+
+  if (line.startsWith(HUNK_HEADER_PREFIX) && currentFile) {
+    addChangedLines(changedLinesByFile, currentFile, line);
+  }
+
+  return currentFile;
 }
 
 /**
@@ -167,20 +281,30 @@ function parseChangedLinesDiff(output, changedLinesByFile) {
  *
  * @param {string} baseBranch - Branch or ref used as the comparison base.
  * @param {string[]} changedFiles - Git-relative changed file paths.
- * @returns {Map<string, Set<number>>} Changed line numbers by file path.
+ * @param {number} [timeoutMs] - Git command timeout in milliseconds.
+ * @returns {Promise<Map<string, Set<number>>>} Changed line numbers by file path.
  */
-export function getChangedLines(baseBranch, changedFiles) {
+export async function getChangedLines(baseBranch, changedFiles, timeoutMs = TIMEOUT_DEFAULTS.gitTimeoutMs) {
   const changedLinesByFile = createChangedLinesMap(changedFiles);
 
   if (changedFiles.length === 0) {
     return changedLinesByFile;
   }
 
+  const args = ['diff', '--unified=0', `${baseBranch}...HEAD`, '--', ...changedFiles];
+  const { child, wait } = startGit(args, timeoutMs);
+  const lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
+  let currentFile = null;
+
   try {
-    const output = execFileSync('git', ['diff', '--unified=0', `${baseBranch}...HEAD`, '--', ...changedFiles], {
-      encoding: 'utf8',
-    });
-    parseChangedLinesDiff(output, changedLinesByFile);
+    await Promise.all([
+      (async () => {
+        for await (const line of lines) {
+          currentFile = parseChangedLinesDiffLine(line, currentFile, changedLinesByFile);
+        }
+      })(),
+      wait,
+    ]);
   } catch (error) {
     throw new Error(`Failed to get changed lines: ${error.message}`, { cause: error });
   }
@@ -191,9 +315,10 @@ export function getChangedLines(baseBranch, changedFiles) {
 /**
  * Checks whether the working tree contains tracked or untracked changes.
  *
- * @returns {boolean} `true` when `git status --porcelain` reports any entry.
+ * @param {number} [timeoutMs] - Git command timeout in milliseconds.
+ * @returns {Promise<boolean>} `true` when `git status --porcelain` reports any entry.
  */
-export function isDirty() {
-  const status = execFileSync('git', ['status', '--porcelain'], execFileConfig).trim();
+export async function isDirty(timeoutMs = TIMEOUT_DEFAULTS.gitTimeoutMs) {
+  const status = (await runGitText(['status', '--porcelain'], timeoutMs)).trim();
   return status.length > 0;
 }

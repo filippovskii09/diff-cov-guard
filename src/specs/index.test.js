@@ -6,6 +6,7 @@ import {
   COMMENT_REASONS,
   COMMENT_STATUSES,
   DEFAULT_BRANCH,
+  DEFAULT_GIT_TIMEOUT_MS,
   DEFAULT_LCOV_PATH,
   DEFAULT_THRESHOLD,
   ENV_TYPES,
@@ -178,7 +179,7 @@ describe('run', () => {
 
     await index.run({}, lifecycle);
 
-    expect(git.fetchBranch).toHaveBeenCalledWith(CI_BASE_BRANCH);
+    expect(git.fetchBranch).toHaveBeenCalledWith(CI_BASE_BRANCH, DEFAULT_GIT_TIMEOUT_MS);
     expect(lcov.parseLcov).toHaveBeenCalledWith(DEFAULT_LCOV_PATH, {
       repoRoot: process.cwd(),
       rootDir: process.cwd(),
@@ -212,7 +213,7 @@ describe('run', () => {
 
     await index.run({ baseBranch: CLI_BASE_BRANCH }, lifecycle);
 
-    expect(git.getChangedFiles).toHaveBeenCalledWith(CLI_BASE_BRANCH);
+    expect(git.getChangedFiles).toHaveBeenCalledWith(CLI_BASE_BRANCH, DEFAULT_GIT_TIMEOUT_MS);
     expect(logs.error).toHaveBeenCalledWith('\nFiles below diff coverage requirements:');
     expect(logs.error).toHaveBeenCalledWith(` - ${SOURCE_FILE}: uncovered changed lines ${uncoveredLine}`);
     expect(lifecycle.exit).toHaveBeenCalledWith(1);
