@@ -7,10 +7,12 @@ import { afterEach, describe, expect, jest, test } from '@jest/globals';
 import { loadConfig } from '../config.js';
 import {
   CLI_BASE_BRANCH,
+  COMMENT_DEFAULTS,
   CONFIG_FILES,
   DEFAULT_LCOV_PATH,
   DEFAULT_THRESHOLD,
   DEVELOP_BRANCH,
+  commentConfig,
 } from './helpers/fixtures.js';
 
 const PACKAGE_CONFIG = {
@@ -19,6 +21,7 @@ const PACKAGE_CONFIG = {
   baseBranch: 'pkg-base',
   rootDir: 'pkg-root',
   failOnEmpty: false,
+  comment: commentConfig({ maxFiles: 3, maxLinesPerFile: 4 }),
 };
 const RC_CONFIG = {
   threshold: 80,
@@ -26,6 +29,7 @@ const RC_CONFIG = {
   baseBranch: 'rc-base',
   rootDir: 'rc-root',
   failOnEmpty: true,
+  comment: commentConfig({ enabled: true, maxFiles: 5, maxLinesPerFile: 6, failOnError: true }),
 };
 const CLI_LCOV_PATH = './cli.info';
 const CLI_CONFIG = {
@@ -34,6 +38,10 @@ const CLI_CONFIG = {
   base: CLI_BASE_BRANCH,
   'root-dir': 'cli-root',
   'fail-on-empty': false,
+  'no-comment': true,
+  'comment-max-files': '7',
+  'comment-max-lines-per-file': '8',
+  'comment-fail-on-error': false,
 };
 let tempDir;
 const originalCwd = process.cwd();
@@ -67,6 +75,7 @@ describe('config', () => {
       baseBranch: undefined,
       rootDir: process.cwd(),
       failOnEmpty: false,
+      comment: commentConfig(),
     });
   });
 
@@ -83,6 +92,50 @@ describe('config', () => {
       baseBranch: CLI_CONFIG.base,
       rootDir: resolve(process.cwd(), CLI_CONFIG['root-dir']),
       failOnEmpty: CLI_CONFIG['fail-on-empty'],
+      comment: {
+        enabled: false,
+        maxFiles: Number(CLI_CONFIG['comment-max-files']),
+        maxLinesPerFile: Number(CLI_CONFIG['comment-max-lines-per-file']),
+        failOnError: CLI_CONFIG['comment-fail-on-error'],
+      },
+    });
+  });
+
+  test('enables comments by default in supported CI environments', () => {
+    makeTempProject();
+
+    expect(loadConfig({}, { type: 'GITHUB', isCI: true })).toMatchObject({
+      comment: {
+        enabled: true,
+      },
+    });
+  });
+
+  test('merges nested comment config with rc values overriding package values', () => {
+    makeTempProject();
+    writeProjectJson(CONFIG_FILES.PACKAGE_JSON_FILE, {
+      [CONFIG_FILES.PACKAGE_CONFIG_KEY]: {
+        comment: {
+          enabled: true,
+          maxFiles: 3,
+          maxLinesPerFile: 4,
+          failOnError: COMMENT_DEFAULTS.failOnError,
+        },
+      },
+    });
+    writeProjectJson(CONFIG_FILES.RC_CONFIG_FILE, {
+      comment: {
+        maxFiles: 5,
+      },
+    });
+
+    expect(loadConfig()).toMatchObject({
+      comment: {
+        enabled: true,
+        maxFiles: 5,
+        maxLinesPerFile: 4,
+        failOnError: COMMENT_DEFAULTS.failOnError,
+      },
     });
   });
 
@@ -114,6 +167,7 @@ describe('config', () => {
       baseBranch: undefined,
       rootDir: process.cwd(),
       failOnEmpty: false,
+      comment: commentConfig(),
     });
     expect(warn).toHaveBeenCalledWith(expect.stringContaining(`Failed to read ${CONFIG_FILES.RC_CONFIG_FILE}`));
   });

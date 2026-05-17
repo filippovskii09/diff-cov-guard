@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, jest, test } from '@jest/globals';
 import {
   CI_BASE_BRANCH,
   CLI_BASE_BRANCH,
+  COMMENT_REASONS,
+  COMMENT_STATUSES,
   DEFAULT_BRANCH,
   DEFAULT_LCOV_PATH,
   DEFAULT_THRESHOLD,
@@ -13,6 +15,7 @@ import {
   SOURCE_FILE,
   changedLinesMap,
   ciEnvironment,
+  commentConfig,
   diffCoverage,
   fileResult,
   localEnvironment,
@@ -35,12 +38,17 @@ const coverage = {
   calculateDiffCoverage: jest.fn(),
   passesThreshold: jest.fn(),
 };
+const comment = {
+  buildCommentBody: jest.fn(),
+  publishCoverageComment: jest.fn(),
+};
 
 jest.unstable_mockModule('../environment.js', () => environment);
 jest.unstable_mockModule('../git.js', () => git);
 jest.unstable_mockModule('../config.js', () => config);
 jest.unstable_mockModule('../lcov.js', () => lcov);
 jest.unstable_mockModule('../coverage.js', () => coverage);
+jest.unstable_mockModule('../comment.js', () => comment);
 
 const index = await import('../index.js');
 
@@ -65,6 +73,8 @@ beforeEach(() => {
   lcov.parseLcov.mockReturnValue(new Map());
   coverage.calculateDiffCoverage.mockReturnValue(diffCoverage());
   coverage.passesThreshold.mockReturnValue(true);
+  comment.buildCommentBody.mockReturnValue('comment body');
+  comment.publishCoverageComment.mockResolvedValue();
 });
 
 describe('index helpers', () => {
@@ -125,6 +135,9 @@ describe('run', () => {
 
     expect(lifecycle.exit).toHaveBeenCalledWith(0);
     expect(logs.log).toHaveBeenCalledWith(expect.stringContaining('No changed files found'));
+    expect(comment.buildCommentBody).toHaveBeenCalledWith(
+      expect.objectContaining({ status: COMMENT_STATUSES.SKIPPED, reason: COMMENT_REASONS.NO_CHANGED_FILES })
+    );
   });
 
   test('exits successfully when only non-source files changed', async () => {
@@ -172,6 +185,11 @@ describe('run', () => {
     });
     expect(logs.table).toHaveBeenCalled();
     expect(logs.log).toHaveBeenCalledWith(expect.stringContaining('Success: Diff Coverage is 100%'));
+    expect(comment.publishCoverageComment).toHaveBeenCalledWith({
+      env: expect.objectContaining({ type: ENV_TYPES.GITHUB }),
+      config: expect.any(Object),
+      body: 'comment body',
+    });
     expect(lifecycle.exit).toHaveBeenCalledWith(0);
   });
 
@@ -197,6 +215,29 @@ describe('run', () => {
     expect(git.getChangedFiles).toHaveBeenCalledWith(CLI_BASE_BRANCH);
     expect(logs.error).toHaveBeenCalledWith('\nFiles below diff coverage requirements:');
     expect(logs.error).toHaveBeenCalledWith(` - ${SOURCE_FILE}: uncovered changed lines ${uncoveredLine}`);
+    expect(lifecycle.exit).toHaveBeenCalledWith(1);
+  });
+
+  test('keeps coverage exit code when comment publishing fails by default', async () => {
+    const publishError = new Error('missing permission');
+    comment.publishCoverageComment.mockRejectedValue(publishError);
+
+    await index.run({}, lifecycle);
+
+    expect(logs.warn).toHaveBeenCalledWith(`WARN: Failed to publish coverage comment: ${publishError.message}`);
+    expect(lifecycle.exit).toHaveBeenCalledWith(0);
+  });
+
+  test('fails when comment publishing fails and failOnError is enabled', async () => {
+    comment.publishCoverageComment.mockRejectedValue(new Error('missing permission'));
+    config.loadConfig.mockReturnValue(
+      runConfig({
+        comment: commentConfig({ enabled: true, failOnError: true }),
+      })
+    );
+
+    await index.run({}, lifecycle);
+
     expect(lifecycle.exit).toHaveBeenCalledWith(1);
   });
 

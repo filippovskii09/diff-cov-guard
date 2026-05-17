@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
-import { ARGS_OPTIONS, DEFAULT_BASE_BRANCH } from '../src/constants.js';
+import { ARGS_OPTIONS, COMMENT_DEFAULTS, DEFAULT_BASE_BRANCH } from '../src/constants.js';
 import { runInit } from '../src/init.js';
 import { run } from '../src/index.js';
 
@@ -45,6 +45,14 @@ Options:
   -b, --base <branch>       Base branch for comparison (default: ${DEFAULT_BASE_BRANCH})
       --root-dir <path>     Directory LCOV relative paths are based on (default: current directory)
       --fail-on-empty       Fail when the LCOV report is missing or empty
+      --comment             Publish or update a PR/MR coverage comment
+      --no-comment          Disable PR/MR coverage comments
+      --comment-max-files <number>
+                            Maximum files shown in the PR/MR comment (default: ${COMMENT_DEFAULTS.maxFiles})
+      --comment-max-lines-per-file <number>
+                            Maximum uncovered lines shown per file in the PR/MR comment (default: ${COMMENT_DEFAULTS.maxLinesPerFile})
+      --comment-fail-on-error
+                            Fail the guard when publishing the PR/MR comment fails
   -h, --help                Show help
   -v, --version             Show version
     `);

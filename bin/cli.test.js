@@ -74,7 +74,23 @@ describe('cli', () => {
     const rootDir = 'workspace';
 
     await cli.main(
-      ['--threshold', threshold, '--lcov', lcovPath, '--base', baseBranch, '--root-dir', rootDir, '--fail-on-empty'],
+      [
+        '--threshold',
+        threshold,
+        '--lcov',
+        lcovPath,
+        '--base',
+        baseBranch,
+        '--root-dir',
+        rootDir,
+        '--fail-on-empty',
+        '--comment',
+        '--comment-max-files',
+        '5',
+        '--comment-max-lines-per-file',
+        '6',
+        '--comment-fail-on-error',
+      ],
       lifecycle
     );
 
@@ -84,6 +100,10 @@ describe('cli', () => {
       base: baseBranch,
       'root-dir': rootDir,
       'fail-on-empty': true,
+      comment: true,
+      'comment-max-files': '5',
+      'comment-max-lines-per-file': '6',
+      'comment-fail-on-error': true,
     });
     expect(lifecycle.exit).not.toHaveBeenCalled();
   });

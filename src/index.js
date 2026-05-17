@@ -1,7 +1,14 @@
 import { extname } from 'node:path';
 
 import { calculateDiffCoverage, passesThreshold } from './coverage.js';
-import { COVERAGE_SOURCE_EXTENSIONS, EXIT_CODES, CONSOLE_COLORS } from './constants.js';
+import {
+  COMMENT_REASONS,
+  COMMENT_STATUSES,
+  COVERAGE_SOURCE_EXTENSIONS,
+  EXIT_CODES,
+  CONSOLE_COLORS,
+} from './constants.js';
+import { buildCommentBody, publishCoverageComment } from './comment.js';
 import { getEnvironment } from './environment.js';
 import { fetchBranch, getChangedFiles, getChangedLines, getRemoteDefaultBranch } from './git.js';
 import { loadConfig } from './config.js';
@@ -111,6 +118,23 @@ function exitWith(lifecycle, code) {
   lifecycle.exit(code);
 }
 
+async function finishRun({ lifecycle, env, config, status, exitCode, diffCoverage, reason }) {
+  const body = buildCommentBody({ status, config, diffCoverage, reason, env });
+
+  try {
+    await publishCoverageComment({ env, config, body });
+  } catch (error) {
+    console.warn(`WARN: Failed to publish coverage comment: ${error.message}`);
+
+    if (config.comment.failOnError) {
+      exitWith(lifecycle, EXIT_CODES.FAILURE);
+      return;
+    }
+  }
+
+  exitWith(lifecycle, exitCode);
+}
+
 /**
  * Runs the coverage guard workflow for the current repository context.
  *
@@ -130,7 +154,7 @@ export async function run(args, lifecycle = process) {
     console.log('Starting coverage check...');
 
     const env = getEnvironment();
-    const config = loadConfig(args);
+    const config = loadConfig(args, env);
     const cliBase = args.base ?? args.baseBranch;
     const base = cliBase ?? env.baseBranch ?? config.baseBranch ?? getRemoteDefaultBranch();
     config.baseBranch = base;
@@ -148,13 +172,27 @@ export async function run(args, lifecycle = process) {
 
     if (changedFiles.length === 0) {
       console.log(colorize(CONSOLE_COLORS.GREEN, '✔ Success: No changed files found.'));
-      exitWith(lifecycle, EXIT_CODES.SUCCESS);
+      await finishRun({
+        lifecycle,
+        env,
+        config,
+        status: COMMENT_STATUSES.SKIPPED,
+        exitCode: EXIT_CODES.SUCCESS,
+        reason: COMMENT_REASONS.NO_CHANGED_FILES,
+      });
       return;
     }
 
     if (sourceChangedFiles.length === 0) {
       console.log('ℹ Nothing to check: only non-source files changed.');
-      exitWith(lifecycle, EXIT_CODES.SUCCESS);
+      await finishRun({
+        lifecycle,
+        env,
+        config,
+        status: COMMENT_STATUSES.SKIPPED,
+        exitCode: EXIT_CODES.SUCCESS,
+        reason: COMMENT_REASONS.ONLY_NON_SOURCE_FILES,
+      });
       return;
     }
 
@@ -162,13 +200,22 @@ export async function run(args, lifecycle = process) {
 
     if (!hasChangedLines(changedLinesByFile)) {
       console.log('ℹ No new executable lines found in this PR. Skipping.');
-      exitWith(lifecycle, EXIT_CODES.SUCCESS);
+      await finishRun({
+        lifecycle,
+        env,
+        config,
+        status: COMMENT_STATUSES.SKIPPED,
+        exitCode: EXIT_CODES.SUCCESS,
+        reason: COMMENT_REASONS.NO_EXECUTABLE_CHANGED_LINES,
+      });
       return;
     }
 
     if (isLcovEmptyOrMissing(config.lcovPath)) {
+      const exitCode = config.failOnEmpty ? EXIT_CODES.FAILURE : EXIT_CODES.SUCCESS;
+      const status = config.failOnEmpty ? COMMENT_STATUSES.FAILED : COMMENT_STATUSES.SKIPPED;
       console.warn('WARN: LCOV file is empty or missing. Skipping coverage check.');
-      exitWith(lifecycle, config.failOnEmpty ? EXIT_CODES.FAILURE : EXIT_CODES.SUCCESS);
+      await finishRun({ lifecycle, env, config, status, exitCode, reason: COMMENT_REASONS.LCOV_EMPTY_OR_MISSING });
       return;
     }
 
@@ -180,7 +227,16 @@ export async function run(args, lifecycle = process) {
 
     printFinalReport(config, diffCoverage);
 
-    exitWith(lifecycle, getExitCode(diffCoverage, config.threshold));
+    const exitCode = getExitCode(diffCoverage, config.threshold);
+    const status = exitCode === EXIT_CODES.SUCCESS ? COMMENT_STATUSES.PASSED : COMMENT_STATUSES.FAILED;
+    await finishRun({
+      lifecycle,
+      env,
+      config,
+      status,
+      exitCode,
+      diffCoverage,
+    });
   } catch (error) {
     console.error(`Error: ${error.message}`);
     exitWith(lifecycle, EXIT_CODES.FAILURE);
