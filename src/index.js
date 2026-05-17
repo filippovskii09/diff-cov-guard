@@ -159,8 +159,6 @@ export async function run(args, lifecycle = process) {
     const base = cliBase ?? env.baseBranch ?? config.baseBranch ?? getRemoteDefaultBranch();
     config.baseBranch = base;
 
-    console.log('🛠  Resolved Config:', config);
-
     console.log(`Environment: ${env.type.toUpperCase()}`);
 
     if (env.isCI) {

@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
 
-import { ARGS_OPTIONS, COMMENT_DEFAULTS, DEFAULT_BASE_BRANCH } from '../src/constants.js';
+import { ARGS_OPTIONS, COMMENT_DEFAULTS, DEFAULT_BASE_BRANCH, TIMEOUT_DEFAULTS } from '../src/constants.js';
 import { runInit } from '../src/init.js';
 import { run } from '../src/index.js';
 
@@ -45,6 +45,10 @@ Options:
   -b, --base <branch>       Base branch for comparison (default: ${DEFAULT_BASE_BRANCH})
       --root-dir <path>     Directory LCOV relative paths are based on (default: current directory)
       --fail-on-empty       Fail when the LCOV report is missing or empty
+      --git-timeout-ms <number>
+                            Git command timeout in milliseconds (default: ${TIMEOUT_DEFAULTS.gitTimeoutMs})
+      --api-timeout-ms <number>
+                            GitHub/GitLab API timeout in milliseconds (default: ${TIMEOUT_DEFAULTS.apiTimeoutMs})
       --comment             Publish or update a PR/MR coverage comment
       --no-comment          Disable PR/MR coverage comments
       --comment-max-files <number>

@@ -6,12 +6,24 @@ import {
   CONFIG_FILES,
   DEFAULT_BRANCH,
   ENV_TYPES,
+  TIMEOUT_DEFAULTS,
 } from '../../constants.js';
 
-export { ARGS_OPTIONS, COMMENT_DEFAULTS, COMMENT_REASONS, COMMENT_STATUSES, CONFIG_FILES, DEFAULT_BRANCH, ENV_TYPES };
+export {
+  ARGS_OPTIONS,
+  COMMENT_DEFAULTS,
+  COMMENT_REASONS,
+  COMMENT_STATUSES,
+  CONFIG_FILES,
+  DEFAULT_BRANCH,
+  ENV_TYPES,
+  TIMEOUT_DEFAULTS,
+};
 
 export const DEFAULT_THRESHOLD = Number(ARGS_OPTIONS.threshold.default);
 export const DEFAULT_LCOV_PATH = ARGS_OPTIONS.lcov.default;
+export const DEFAULT_GIT_TIMEOUT_MS = TIMEOUT_DEFAULTS.gitTimeoutMs;
+export const DEFAULT_API_TIMEOUT_MS = TIMEOUT_DEFAULTS.apiTimeoutMs;
 export const CURRENT_BRANCH = 'feature';
 export const DEVELOP_BRANCH = 'develop';
 export const RELEASE_BRANCH = 'release';
@@ -97,6 +109,8 @@ export function runConfig(overrides = {}) {
     lcovPath: DEFAULT_LCOV_PATH,
     rootDir: process.cwd(),
     failOnEmpty: false,
+    gitTimeoutMs: DEFAULT_GIT_TIMEOUT_MS,
+    apiTimeoutMs: DEFAULT_API_TIMEOUT_MS,
     ...rest,
     comment: commentConfig(comment),
   };

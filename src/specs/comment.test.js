@@ -69,6 +69,7 @@ beforeEach(() => {
 afterEach(() => {
   process.env = originalEnv;
   globalThis.fetch = originalFetch;
+  jest.restoreAllMocks();
 });
 
 describe('comment body', () => {
@@ -163,6 +164,39 @@ describe('publishCoverageComment', () => {
     );
   });
 
+  test('passes an abort signal with configured API timeout to GitHub fetch calls', async () => {
+    const apiTimeoutMs = 1234;
+    const timeout = jest.spyOn(AbortSignal, 'timeout');
+    process.env.DIFF_COV_GUARD_GITHUB_TOKEN = 'token';
+    globalThis.fetch.mockResolvedValueOnce(response([])).mockResolvedValueOnce(response({}));
+
+    await publishCoverageComment({
+      env: githubEnv(),
+      config: runConfig({
+        apiTimeoutMs,
+        comment: ENABLED_COMMENT_CONFIG,
+      }),
+      body: COMMENT_BODY,
+    });
+
+    expect(timeout).toHaveBeenCalledWith(apiTimeoutMs);
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      1,
+      `${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/${GITHUB_PULL_REQUEST_NUMBER}/comments`,
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      })
+    );
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      2,
+      `${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/issues/${GITHUB_PULL_REQUEST_NUMBER}/comments`,
+      expect.objectContaining({
+        method: 'POST',
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
+
   test('creates GitLab note when marker is not found', async () => {
     process.env.GITLAB_TOKEN = 'token';
     globalThis.fetch.mockResolvedValueOnce(response([])).mockResolvedValueOnce(response({}));
@@ -179,6 +213,39 @@ describe('publishCoverageComment', () => {
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({ body: COMMENT_BODY }),
+      })
+    );
+  });
+
+  test('passes an abort signal with configured API timeout to GitLab fetch calls', async () => {
+    const apiTimeoutMs = 4321;
+    const timeout = jest.spyOn(AbortSignal, 'timeout');
+    process.env.GITLAB_TOKEN = 'token';
+    globalThis.fetch.mockResolvedValueOnce(response([])).mockResolvedValueOnce(response({}));
+
+    await publishCoverageComment({
+      env: gitlabEnv(),
+      config: runConfig({
+        apiTimeoutMs,
+        comment: ENABLED_COMMENT_CONFIG,
+      }),
+      body: COMMENT_BODY,
+    });
+
+    expect(timeout).toHaveBeenCalledWith(apiTimeoutMs);
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      1,
+      `${GITLAB_API_URL}/projects/${encodeURIComponent(GITLAB_PROJECT_ID)}/merge_requests/${GITLAB_MERGE_REQUEST_IID}/notes`,
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+      })
+    );
+    expect(globalThis.fetch).toHaveBeenNthCalledWith(
+      2,
+      `${GITLAB_API_URL}/projects/${encodeURIComponent(GITLAB_PROJECT_ID)}/merge_requests/${GITLAB_MERGE_REQUEST_IID}/notes`,
+      expect.objectContaining({
+        method: 'POST',
+        signal: expect.any(AbortSignal),
       })
     );
   });

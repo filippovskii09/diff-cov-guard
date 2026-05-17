@@ -9,6 +9,8 @@ import {
   CLI_BASE_BRANCH,
   COMMENT_DEFAULTS,
   CONFIG_FILES,
+  DEFAULT_API_TIMEOUT_MS,
+  DEFAULT_GIT_TIMEOUT_MS,
   DEFAULT_LCOV_PATH,
   DEFAULT_THRESHOLD,
   DEVELOP_BRANCH,
@@ -21,6 +23,8 @@ const PACKAGE_CONFIG = {
   baseBranch: 'pkg-base',
   rootDir: 'pkg-root',
   failOnEmpty: false,
+  gitTimeoutMs: 111,
+  apiTimeoutMs: 222,
   comment: commentConfig({ maxFiles: 3, maxLinesPerFile: 4 }),
 };
 const RC_CONFIG = {
@@ -29,6 +33,8 @@ const RC_CONFIG = {
   baseBranch: 'rc-base',
   rootDir: 'rc-root',
   failOnEmpty: true,
+  gitTimeoutMs: 333,
+  apiTimeoutMs: 444,
   comment: commentConfig({ enabled: true, maxFiles: 5, maxLinesPerFile: 6, failOnError: true }),
 };
 const CLI_LCOV_PATH = './cli.info';
@@ -38,6 +44,8 @@ const CLI_CONFIG = {
   base: CLI_BASE_BRANCH,
   'root-dir': 'cli-root',
   'fail-on-empty': false,
+  'git-timeout-ms': '555',
+  'api-timeout-ms': '666',
   'no-comment': true,
   'comment-max-files': '7',
   'comment-max-lines-per-file': '8',
@@ -75,6 +83,8 @@ describe('config', () => {
       baseBranch: undefined,
       rootDir: process.cwd(),
       failOnEmpty: false,
+      gitTimeoutMs: DEFAULT_GIT_TIMEOUT_MS,
+      apiTimeoutMs: DEFAULT_API_TIMEOUT_MS,
       comment: commentConfig(),
     });
   });
@@ -92,6 +102,8 @@ describe('config', () => {
       baseBranch: CLI_CONFIG.base,
       rootDir: resolve(process.cwd(), CLI_CONFIG['root-dir']),
       failOnEmpty: CLI_CONFIG['fail-on-empty'],
+      gitTimeoutMs: Number(CLI_CONFIG['git-timeout-ms']),
+      apiTimeoutMs: Number(CLI_CONFIG['api-timeout-ms']),
       comment: {
         enabled: false,
         maxFiles: Number(CLI_CONFIG['comment-max-files']),
@@ -167,8 +179,38 @@ describe('config', () => {
       baseBranch: undefined,
       rootDir: process.cwd(),
       failOnEmpty: false,
+      gitTimeoutMs: DEFAULT_GIT_TIMEOUT_MS,
+      apiTimeoutMs: DEFAULT_API_TIMEOUT_MS,
       comment: commentConfig(),
     });
     expect(warn).toHaveBeenCalledWith(expect.stringContaining(`Failed to read ${CONFIG_FILES.RC_CONFIG_FILE}`));
+  });
+
+  test.each([
+    ['threshold', { threshold: '101' }, 'threshold'],
+    ['threshold', { threshold: 'abc' }, 'threshold'],
+    ['git timeout', { 'git-timeout-ms': '0' }, 'gitTimeoutMs'],
+    ['git timeout', { 'git-timeout-ms': '300001' }, 'gitTimeoutMs'],
+    ['api timeout', { 'api-timeout-ms': '0' }, 'apiTimeoutMs'],
+    ['api timeout', { 'api-timeout-ms': '60001' }, 'apiTimeoutMs'],
+    ['comment max files', { 'comment-max-files': '101' }, 'comment.maxFiles'],
+    ['comment max lines', { 'comment-max-lines-per-file': '501' }, 'comment.maxLinesPerFile'],
+    ['comment max files integer', { 'comment-max-files': '1.5' }, 'comment.maxFiles'],
+  ])('rejects invalid %s values', (_label, cliArgs, configName) => {
+    makeTempProject();
+
+    expect(() => loadConfig(cliArgs)).toThrow(`Invalid config value "${configName}"`);
+  });
+
+  test('rejects invalid file config values after precedence is applied', () => {
+    makeTempProject();
+    writeProjectJson(CONFIG_FILES.RC_CONFIG_FILE, {
+      threshold: 80,
+      comment: {
+        maxFiles: 0,
+      },
+    });
+
+    expect(() => loadConfig()).toThrow('Invalid config value "comment.maxFiles"');
   });
 });

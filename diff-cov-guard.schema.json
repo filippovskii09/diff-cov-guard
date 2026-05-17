@@ -32,6 +32,18 @@
       "type": "boolean",
       "description": "Fail when the LCOV file is missing or empty."
     },
+    "gitTimeoutMs": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 300000,
+      "description": "Timeout in milliseconds for Git commands."
+    },
+    "apiTimeoutMs": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60000,
+      "description": "Timeout in milliseconds for GitHub/GitLab API calls."
+    },
     "comment": {
       "type": "object",
       "description": "PR/MR coverage comment behavior.",
@@ -44,11 +56,13 @@
         "maxFiles": {
           "type": "integer",
           "minimum": 1,
+          "maximum": 100,
           "description": "Maximum files shown in the PR/MR comment."
         },
         "maxLinesPerFile": {
           "type": "integer",
           "minimum": 1,
+          "maximum": 500,
           "description": "Maximum uncovered lines shown per file in the PR/MR comment."
         },
         "failOnError": {
