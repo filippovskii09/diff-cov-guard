@@ -1,7 +1,14 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 
-import { ARGS_OPTIONS, COMMENT_DEFAULTS, CONFIG_FILES, ENV_TYPES } from './constants.js';
+import {
+  ARGS_OPTIONS,
+  COMMENT_DEFAULTS,
+  CONFIG_FILES,
+  CONFIG_LIMITS,
+  ENV_TYPES,
+  TIMEOUT_DEFAULTS,
+} from './constants.js';
 
 function readJsonFile(filePath, label) {
   if (!existsSync(filePath)) {
@@ -26,13 +33,84 @@ function loadPackageConfig(cwd) {
   return packageJson?.[CONFIG_FILES.PACKAGE_CONFIG_KEY] ?? {};
 }
 
-function parseOptionalNumber(value, fallback) {
-  return value === undefined ? fallback : Number(value);
+function assertInRange(name, number, min, max) {
+  if (number < min || number > max) {
+    throw new Error(`Invalid config value "${name}": expected a value from ${min} to ${max}.`);
+  }
+}
+
+function parseNumberValue(name, value) {
+  if (typeof value !== 'number' && typeof value !== 'string') {
+    throw new Error(`Invalid config value "${name}": expected a number.`);
+  }
+
+  if (typeof value === 'string' && value.trim() === '') {
+    throw new Error(`Invalid config value "${name}": expected a number.`);
+  }
+
+  const number = Number(value);
+
+  if (!Number.isFinite(number)) {
+    throw new Error(`Invalid config value "${name}": expected a finite number.`);
+  }
+
+  return number;
+}
+
+function parseOptionalFiniteNumber(name, value, fallback, min, max) {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  const number = parseNumberValue(name, value);
+  assertInRange(name, number, min, max);
+
+  return number;
+}
+
+function parseOptionalInteger(name, value, fallback, min, max) {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  const number = parseNumberValue(name, value);
+
+  if (!Number.isInteger(number)) {
+    throw new Error(`Invalid config value "${name}": expected an integer.`);
+  }
+
+  assertInRange(name, number, min, max);
+
+  return number;
+}
+
+function parseOptionalBoolean(name, value, fallback) {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  if (typeof value !== 'boolean') {
+    throw new Error(`Invalid config value "${name}": expected a boolean.`);
+  }
+
+  return value;
+}
+
+function parseOptionalString(name, value, fallback) {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(`Invalid config value "${name}": expected a non-empty string.`);
+  }
+
+  return value;
 }
 
 function resolveCommentEnabled(cliArgs, fileConfigs, env) {
   if (cliArgs.comment !== undefined) {
-    return cliArgs.comment;
+    return parseOptionalBoolean('comment.enabled', cliArgs.comment, undefined);
   }
 
   if (cliArgs['no-comment']) {
@@ -40,7 +118,7 @@ function resolveCommentEnabled(cliArgs, fileConfigs, env) {
   }
 
   if (fileConfigs.comment?.enabled !== undefined) {
-    return fileConfigs.comment.enabled;
+    return parseOptionalBoolean('comment.enabled', fileConfigs.comment.enabled, undefined);
   }
 
   return env.isCI && (env.type === ENV_TYPES.GITHUB || env.type === ENV_TYPES.GITLAB);
@@ -49,27 +127,71 @@ function resolveCommentEnabled(cliArgs, fileConfigs, env) {
 function resolveCommentConfig(cliArgs, fileConfigs, env) {
   return {
     enabled: resolveCommentEnabled(cliArgs, fileConfigs, env),
-    maxFiles: parseOptionalNumber(
-      cliArgs['comment-max-files'],
-      fileConfigs.comment?.maxFiles ?? COMMENT_DEFAULTS.maxFiles
+    maxFiles: parseOptionalInteger(
+      'comment.maxFiles',
+      cliArgs['comment-max-files'] ?? fileConfigs.comment?.maxFiles,
+      COMMENT_DEFAULTS.maxFiles,
+      CONFIG_LIMITS.commentMaxFilesMin,
+      CONFIG_LIMITS.commentMaxFilesMax
     ),
-    maxLinesPerFile: parseOptionalNumber(
-      cliArgs['comment-max-lines-per-file'],
-      fileConfigs.comment?.maxLinesPerFile ?? COMMENT_DEFAULTS.maxLinesPerFile
+    maxLinesPerFile: parseOptionalInteger(
+      'comment.maxLinesPerFile',
+      cliArgs['comment-max-lines-per-file'] ?? fileConfigs.comment?.maxLinesPerFile,
+      COMMENT_DEFAULTS.maxLinesPerFile,
+      CONFIG_LIMITS.commentMaxLinesPerFileMin,
+      CONFIG_LIMITS.commentMaxLinesPerFileMax
     ),
-    failOnError: Boolean(
-      cliArgs['comment-fail-on-error'] ?? fileConfigs.comment?.failOnError ?? COMMENT_DEFAULTS.failOnError
+    failOnError: parseOptionalBoolean(
+      'comment.failOnError',
+      cliArgs['comment-fail-on-error'] ?? fileConfigs.comment?.failOnError,
+      COMMENT_DEFAULTS.failOnError
     ),
   };
 }
 
 function resolveConfig(cliArgs, fileConfigs, env) {
+  const lcovPath = parseOptionalString('lcovPath', cliArgs.lcov ?? fileConfigs.lcovPath, ARGS_OPTIONS.lcov.default);
+  const baseBranch = parseOptionalString(
+    'baseBranch',
+    cliArgs.baseBranch ?? cliArgs.base ?? fileConfigs.baseBranch,
+    undefined
+  );
+  const rootDir = parseOptionalString(
+    'rootDir',
+    cliArgs.rootDir ?? cliArgs['root-dir'] ?? fileConfigs.rootDir,
+    process.cwd()
+  );
+
   return {
-    threshold: Number(cliArgs.threshold ?? fileConfigs.threshold ?? ARGS_OPTIONS.threshold.default),
-    lcovPath: cliArgs.lcov ?? fileConfigs.lcovPath ?? ARGS_OPTIONS.lcov.default,
-    baseBranch: cliArgs.baseBranch ?? cliArgs.base ?? fileConfigs.baseBranch,
-    rootDir: resolve(cliArgs.rootDir ?? cliArgs['root-dir'] ?? fileConfigs.rootDir ?? process.cwd()),
-    failOnEmpty: Boolean(cliArgs.failOnEmpty ?? cliArgs['fail-on-empty'] ?? fileConfigs.failOnEmpty ?? false),
+    threshold: parseOptionalFiniteNumber(
+      'threshold',
+      cliArgs.threshold ?? fileConfigs.threshold,
+      Number(ARGS_OPTIONS.threshold.default),
+      CONFIG_LIMITS.thresholdMin,
+      CONFIG_LIMITS.thresholdMax
+    ),
+    lcovPath,
+    baseBranch,
+    rootDir: resolve(rootDir),
+    failOnEmpty: parseOptionalBoolean(
+      'failOnEmpty',
+      cliArgs.failOnEmpty ?? cliArgs['fail-on-empty'] ?? fileConfigs.failOnEmpty,
+      false
+    ),
+    gitTimeoutMs: parseOptionalInteger(
+      'gitTimeoutMs',
+      cliArgs['git-timeout-ms'] ?? fileConfigs.gitTimeoutMs,
+      TIMEOUT_DEFAULTS.gitTimeoutMs,
+      CONFIG_LIMITS.gitTimeoutMsMin,
+      CONFIG_LIMITS.gitTimeoutMsMax
+    ),
+    apiTimeoutMs: parseOptionalInteger(
+      'apiTimeoutMs',
+      cliArgs['api-timeout-ms'] ?? fileConfigs.apiTimeoutMs,
+      TIMEOUT_DEFAULTS.apiTimeoutMs,
+      CONFIG_LIMITS.apiTimeoutMsMin,
+      CONFIG_LIMITS.apiTimeoutMsMax
+    ),
     comment: resolveCommentConfig(cliArgs, fileConfigs, env),
   };
 }

@@ -14,7 +14,7 @@ lines are not covered enough. It is designed for CI pull request checks, but the
 `diff-cov-guard` expects your project to already have:
 
 - a Git repository;
-- Node.js with `npm`/`npx`;
+- Node.js 20 or newer with `npm`/`npx`;
 - a test command that generates an LCOV report, for example `npm run test:cov`;
 - an LCOV file, default `./coverage/lcov.info`;
 - the pull request base branch available in CI;
@@ -47,6 +47,8 @@ Recommended `.diffcovguardrc`:
   "threshold": 90,
   "lcovPath": "./coverage/lcov.info",
   "failOnEmpty": true,
+  "gitTimeoutMs": 30000,
+  "apiTimeoutMs": 10000,
   "comment": {
     "maxFiles": 10,
     "maxLinesPerFile": 20,
@@ -83,6 +85,7 @@ With flags:
 
 ```sh
 npx diff-cov-guard --threshold 90 --lcov ./coverage/lcov.info --fail-on-empty
+npx diff-cov-guard --git-timeout-ms 30000 --api-timeout-ms 10000
 ```
 
 PR/MR comments are enabled automatically in GitHub Actions and GitLab merge request pipelines. Local runs do not publish
@@ -153,6 +156,9 @@ When comments are enabled, `diff-cov-guard` publishes a short Markdown summary w
 - diff coverage, required threshold, and covered executable line count;
 - a per-file table capped by `comment.maxFiles`;
 - uncovered changed executable lines capped by `comment.maxLinesPerFile`.
+
+Comment output can show at most `comment.maxFiles: 100` files and at most `comment.maxLinesPerFile: 500` uncovered
+lines per file.
 
 Publishing failures are warnings by default and do not change the coverage exit code. Set `comment.failOnError: true` or
 pass `--comment-fail-on-error` if CI should fail when the API call cannot publish the comment.

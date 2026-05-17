@@ -123,17 +123,25 @@ function assertOk(response, action) {
 }
 
 async function requestJson(url, options, action) {
-  const response = await fetch(url, options);
+  const { timeoutMs, ...fetchOptions } = options;
+  const response = await fetch(url, {
+    ...fetchOptions,
+    signal: AbortSignal.timeout(timeoutMs),
+  });
   assertOk(response, action);
   return response.json();
 }
 
 async function requestEmpty(url, options, action) {
-  const response = await fetch(url, options);
+  const { timeoutMs, ...fetchOptions } = options;
+  const response = await fetch(url, {
+    ...fetchOptions,
+    signal: AbortSignal.timeout(timeoutMs),
+  });
   assertOk(response, action);
 }
 
-async function publishGitHubComment(env, body) {
+async function publishGitHubComment(env, config, body) {
   const token = resolveGitHubToken();
 
   if (!token) {
@@ -151,7 +159,11 @@ async function publishGitHubComment(env, body) {
     'X-GitHub-Api-Version': '2022-11-28',
   };
   const issueCommentsUrl = `${env.apiUrl}/repos/${env.repository}/issues/${env.pullRequestNumber}/comments`;
-  const comments = await requestJson(issueCommentsUrl, { headers }, 'List GitHub comments');
+  const comments = await requestJson(
+    issueCommentsUrl,
+    { headers, timeoutMs: config.apiTimeoutMs },
+    'List GitHub comments'
+  );
   const existingComment = comments.find((comment) => comment.body?.includes(COMMENT_MARKER));
   const payload = JSON.stringify({ body });
 
@@ -162,16 +174,21 @@ async function publishGitHubComment(env, body) {
         method: 'PATCH',
         headers,
         body: payload,
+        timeoutMs: config.apiTimeoutMs,
       },
       'Update GitHub comment'
     );
     return;
   }
 
-  await requestEmpty(issueCommentsUrl, { method: 'POST', headers, body: payload }, 'Create GitHub comment');
+  await requestEmpty(
+    issueCommentsUrl,
+    { method: 'POST', headers, body: payload, timeoutMs: config.apiTimeoutMs },
+    'Create GitHub comment'
+  );
 }
 
-async function publishGitLabComment(env, body) {
+async function publishGitLabComment(env, config, body) {
   const token = resolveGitLabToken();
 
   if (!token) {
@@ -188,20 +205,24 @@ async function publishGitLabComment(env, body) {
   };
   const encodedProjectId = encodeURIComponent(env.projectId);
   const notesUrl = `${env.apiUrl}/projects/${encodedProjectId}/merge_requests/${env.mergeRequestIid}/notes`;
-  const notes = await requestJson(notesUrl, { headers }, 'List GitLab notes');
+  const notes = await requestJson(notesUrl, { headers, timeoutMs: config.apiTimeoutMs }, 'List GitLab notes');
   const existingNote = notes.find((note) => note.body?.includes(COMMENT_MARKER));
   const payload = JSON.stringify({ body });
 
   if (existingNote) {
     await requestEmpty(
       `${notesUrl}/${existingNote.id}`,
-      { method: 'PUT', headers, body: payload },
+      { method: 'PUT', headers, body: payload, timeoutMs: config.apiTimeoutMs },
       'Update GitLab note'
     );
     return;
   }
 
-  await requestEmpty(notesUrl, { method: 'POST', headers, body: payload }, 'Create GitLab note');
+  await requestEmpty(
+    notesUrl,
+    { method: 'POST', headers, body: payload, timeoutMs: config.apiTimeoutMs },
+    'Create GitLab note'
+  );
 }
 
 export async function publishCoverageComment({ env, config, body }) {
@@ -210,11 +231,11 @@ export async function publishCoverageComment({ env, config, body }) {
   }
 
   if (env.type === ENV_TYPES.GITHUB) {
-    await publishGitHubComment(env, body);
+    await publishGitHubComment(env, config, body);
     return;
   }
 
   if (env.type === ENV_TYPES.GITLAB) {
-    await publishGitLabComment(env, body);
+    await publishGitLabComment(env, config, body);
   }
 }

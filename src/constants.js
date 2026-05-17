@@ -8,6 +8,24 @@ export const DEFAULT_BRANCH = 'main';
 
 export const DEFAULT_BASE_BRANCH = 'origin/main';
 
+export const TIMEOUT_DEFAULTS = {
+  gitTimeoutMs: 30000,
+  apiTimeoutMs: 10000,
+};
+
+export const CONFIG_LIMITS = {
+  thresholdMin: 0,
+  thresholdMax: 100,
+  gitTimeoutMsMin: 1,
+  gitTimeoutMsMax: 300000,
+  apiTimeoutMsMin: 1,
+  apiTimeoutMsMax: 60000,
+  commentMaxFilesMin: 1,
+  commentMaxFilesMax: 100,
+  commentMaxLinesPerFileMin: 1,
+  commentMaxLinesPerFileMax: 500,
+};
+
 export const ARGS_OPTIONS = {
   threshold: {
     type: 'string',
@@ -28,6 +46,14 @@ export const ARGS_OPTIONS = {
   },
   'fail-on-empty': {
     type: 'boolean',
+  },
+  'git-timeout-ms': {
+    type: 'string',
+    default: String(TIMEOUT_DEFAULTS.gitTimeoutMs),
+  },
+  'api-timeout-ms': {
+    type: 'string',
+    default: String(TIMEOUT_DEFAULTS.apiTimeoutMs),
   },
   comment: {
     type: 'boolean',
