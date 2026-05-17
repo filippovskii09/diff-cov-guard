@@ -161,11 +161,9 @@ describe('git', () => {
     const changedFiles = [SOURCE_FILE, 'src/file with spaces [x] #ф.js', README_FILE];
     mockGitProcess({ stdout: `${changedFiles.join('\0')}\0` });
     await expect(git.getChangedFiles(DEFAULT_BRANCH)).resolves.toEqual(changedFiles);
-    expect(spawn).toHaveBeenCalledWith(
-      'git',
-      ['diff', '--name-only', '-z', `${DEFAULT_BRANCH}...HEAD`],
-      { stdio: ['ignore', 'pipe', 'pipe'] }
-    );
+    expect(spawn).toHaveBeenCalledWith('git', ['diff', '--name-only', '-z', `${DEFAULT_BRANCH}...HEAD`], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
 
     mockGitProcess({ stdout: '' });
     await expect(git.getChangedFiles(DEFAULT_BRANCH)).resolves.toEqual([]);
