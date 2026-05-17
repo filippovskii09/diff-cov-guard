@@ -22,13 +22,30 @@ function getFileCoverage(file) {
   return formatPercentage((file.coveredLines.length / file.executableLines.length) * 100);
 }
 
+function escapeMarkdownTableCell(value) {
+  return String(value).replaceAll('\\', '\\\\').replaceAll('|', '\\|').replaceAll('\n', ' ');
+}
+
+function escapeInlineCode(value) {
+  return String(value).replaceAll('`', '\\`');
+}
+
+function encodeBlobPath(filePath) {
+  return filePath
+    .split('/')
+    .map((part) => encodeURIComponent(part))
+    .join('/');
+}
+
 function createLineUrl(env, filePath, lineNumber) {
+  const encodedFilePath = encodeBlobPath(filePath);
+
   if (env.type === ENV_TYPES.GITHUB && env.serverUrl && env.repository && env.commitSha) {
-    return `${env.serverUrl}/${env.repository}/blob/${env.commitSha}/${filePath}#L${lineNumber}`;
+    return `${env.serverUrl}/${env.repository}/blob/${env.commitSha}/${encodedFilePath}#L${lineNumber}`;
   }
 
   if (env.type === ENV_TYPES.GITLAB && env.projectUrl && env.commitSha) {
-    return `${env.projectUrl}/-/blob/${env.commitSha}/${filePath}#L${lineNumber}`;
+    return `${env.projectUrl}/-/blob/${env.commitSha}/${encodedFilePath}#L${lineNumber}`;
   }
 
   return null;
@@ -38,7 +55,7 @@ function formatLineReference(env, filePath, lineNumber) {
   const lineUrl = createLineUrl(env, filePath, lineNumber);
 
   if (!lineUrl) {
-    return `\`${filePath}:${lineNumber}\``;
+    return `\`${escapeInlineCode(`${filePath}:${lineNumber}`)}\``;
   }
 
   return `[${lineNumber}](${lineUrl})`;
@@ -56,7 +73,7 @@ function buildMetricsTable(config, diffCoverage) {
 
 function buildFilesTable(config, diffCoverage) {
   const rows = diffCoverage.files.slice(0, config.comment.maxFiles).map((file) => {
-    return `| ${file.filePath} | ${file.changedLines.length} | ${file.coveredLines.length} | ${getFileCoverage(file)} |`;
+    return `| ${escapeMarkdownTableCell(file.filePath)} | ${file.changedLines.length} | ${file.coveredLines.length} | ${getFileCoverage(file)} |`;
   });
 
   return ['| File | Changed | Covered | Coverage |', '| --- | ---: | ---: | ---: |', ...rows].join('\n');
@@ -78,7 +95,7 @@ function buildUncoveredLines(config, diffCoverage, env) {
     const remainingCount = file.uncoveredLines.length - shownLines.length;
     const suffix = remainingCount > 0 ? ` and ${remainingCount} more` : '';
 
-    lines.push(`- \`${file.filePath}\`: ${references}${suffix}`);
+    lines.push(`- \`${escapeInlineCode(file.filePath)}\`: ${references}${suffix}`);
   }
 
   lines.push(
