@@ -1,4 +1,7 @@
-import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
+
+import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 
 import {
   DEFAULT_BRANCH,
@@ -13,24 +16,36 @@ import {
   SOURCE_FILE,
 } from './helpers/fixtures.js';
 
-const execFileSync = jest.fn();
+const spawn = jest.fn();
 
 jest.unstable_mockModule('node:child_process', () => ({
-  execFileSync,
+  spawn,
 }));
 
 const git = await import('../git.js');
+
+class GitChild extends EventEmitter {
+  constructor() {
+    super();
+    this.stdout = new PassThrough();
+    this.stderr = new PassThrough();
+    this.kill = jest.fn((signal) => {
+      this.emit('close', null, signal);
+      return true;
+    });
+  }
+}
 
 function remoteShowOutput(branch) {
   return [`* remote origin`, `  Fetch URL: git@example.com/repo.git`, `  HEAD branch: ${branch}`].join('\n');
 }
 
 function fetchCall(branch) {
-  return ['git', ['fetch', 'origin', `${branch}:${branch}`, '--quiet'], { stdio: 'ignore' }];
+  return ['git', ['fetch', 'origin', `${branch}:${branch}`, '--quiet'], { stdio: ['ignore', 'pipe', 'pipe'] }];
 }
 
 function setOriginHeadCall(branch) {
-  return ['git', ['remote', 'set-head', 'origin', branch], { stdio: 'ignore' }];
+  return ['git', ['remote', 'set-head', 'origin', branch], { stdio: ['ignore', 'pipe', 'pipe'] }];
 }
 
 function diffFixture() {
@@ -49,101 +64,146 @@ function diffFixture() {
   ].join('\n');
 }
 
+function mockGitProcess({ stdout = EMPTY_OUTPUT, stderr = EMPTY_OUTPUT, code = 0, stdoutChunks = null }) {
+  const child = new GitChild();
+  const chunks = stdoutChunks ?? [stdout];
+
+  spawn.mockImplementationOnce(() => {
+    queueMicrotask(() => {
+      for (const chunk of chunks) {
+        child.stdout.write(chunk);
+      }
+
+      child.stdout.end();
+      child.stderr.end(stderr);
+      child.emit('close', code, null);
+    });
+
+    return child;
+  });
+
+  return child;
+}
+
 beforeEach(() => {
-  execFileSync.mockReset();
+  spawn.mockReset();
   jest.spyOn(console, 'log').mockImplementation(() => {});
 });
 
+afterEach(() => {
+  jest.restoreAllMocks();
+  jest.useRealTimers();
+});
+
 describe('git', () => {
-  test('resolves remote default branch with fallback for empty output and errors', () => {
-    execFileSync.mockReturnValueOnce(remoteShowOutput(DEFAULT_BRANCH));
-    expect(git.getRemoteDefaultBranch()).toBe(DEFAULT_BRANCH);
+  test('resolves remote default branch with fallback for empty output and errors', async () => {
+    mockGitProcess({ stdout: remoteShowOutput(DEFAULT_BRANCH) });
+    await expect(git.getRemoteDefaultBranch()).resolves.toBe(DEFAULT_BRANCH);
 
-    execFileSync.mockReturnValueOnce('\n');
-    expect(git.getRemoteDefaultBranch()).toBe(DEFAULT_BRANCH);
+    mockGitProcess({ stdout: '\n' });
+    await expect(git.getRemoteDefaultBranch()).resolves.toBe(DEFAULT_BRANCH);
 
-    execFileSync.mockImplementationOnce(() => {
-      throw new Error(NO_REMOTE_ERROR_MESSAGE);
-    });
-    expect(git.getRemoteDefaultBranch()).toBe(DEFAULT_BRANCH);
+    mockGitProcess({ stderr: NO_REMOTE_ERROR_MESSAGE, code: 1 });
+    await expect(git.getRemoteDefaultBranch()).resolves.toBe(DEFAULT_BRANCH);
   });
 
-  test('fetches branch successfully and retries by setting origin head once', () => {
-    git.fetchBranch(DEVELOP_BRANCH);
-    expect(execFileSync).toHaveBeenCalledWith(...fetchCall(DEVELOP_BRANCH));
+  test('fetches branch successfully and retries by setting origin head once', async () => {
+    mockGitProcess({});
+    await git.fetchBranch(DEVELOP_BRANCH);
+    expect(spawn).toHaveBeenCalledWith(...fetchCall(DEVELOP_BRANCH));
 
-    execFileSync.mockReset();
-    execFileSync
-      .mockImplementationOnce(() => {
-        throw new Error('fetch failed');
-      })
-      .mockReturnValueOnce(EMPTY_OUTPUT)
-      .mockReturnValueOnce(EMPTY_OUTPUT);
+    spawn.mockReset();
+    mockGitProcess({ stderr: 'fetch failed', code: 1 });
+    mockGitProcess({});
+    mockGitProcess({});
 
-    git.fetchBranch(RELEASE_BRANCH);
+    await git.fetchBranch(RELEASE_BRANCH);
 
-    expect(execFileSync.mock.calls).toEqual([
+    expect(spawn.mock.calls).toEqual([
       fetchCall(RELEASE_BRANCH),
       setOriginHeadCall(RELEASE_BRANCH),
       fetchCall(RELEASE_BRANCH),
     ]);
   });
 
-  test('throws when fetch retry fails', () => {
-    execFileSync.mockImplementation(() => {
-      throw new Error('failed');
-    });
+  test('throws when fetch retry fails with stderr context', async () => {
+    mockGitProcess({ stderr: 'failed once', code: 1 });
+    mockGitProcess({ stderr: 'failed twice', code: 1 });
 
-    expect(() => git.fetchBranch(MISSING_BRANCH)).toThrow(`Failed to fetch ${MISSING_BRANCH}`);
+    const promise = git.fetchBranch(MISSING_BRANCH);
+
+    await expect(promise).rejects.toThrow(`Failed to fetch ${MISSING_BRANCH}: Git command failed`);
+    await expect(promise).rejects.toThrow('failed twice');
   });
 
-  test('lists changed files and reports git errors', () => {
+  test('lists changed files and reports git errors with stderr context', async () => {
     const changedFiles = [SOURCE_FILE, README_FILE];
-    execFileSync.mockReturnValueOnce(`${changedFiles.join('\n')}\n`);
-    expect(git.getChangedFiles(DEFAULT_BRANCH)).toEqual(changedFiles);
+    mockGitProcess({ stdout: `${changedFiles.join('\n')}\n` });
+    await expect(git.getChangedFiles(DEFAULT_BRANCH)).resolves.toEqual(changedFiles);
 
-    execFileSync.mockReturnValueOnce('\n');
-    expect(git.getChangedFiles(DEFAULT_BRANCH)).toEqual([]);
+    mockGitProcess({ stdout: '\n' });
+    await expect(git.getChangedFiles(DEFAULT_BRANCH)).resolves.toEqual([]);
 
-    execFileSync.mockImplementationOnce(() => {
-      throw new Error('bad diff');
-    });
-    expect(() => git.getChangedFiles(DEFAULT_BRANCH)).toThrow('Failed to get changed files: bad diff');
+    mockGitProcess({ stderr: 'bad diff', code: 1 });
+    const promise = git.getChangedFiles(DEFAULT_BRANCH);
+
+    await expect(promise).rejects.toThrow('Failed to get changed files:');
+    await expect(promise).rejects.toThrow('bad diff');
   });
 
-  test('parses changed lines across files and hunk shapes', () => {
+  test('parses streamed changed lines across files and hunk shapes', async () => {
     const changedFiles = [SOURCE_FILE, NEW_SOURCE_FILE];
-    execFileSync.mockReturnValue(diffFixture());
+    mockGitProcess({ stdout: diffFixture() });
 
-    const result = git.getChangedLines(DEFAULT_BRANCH, changedFiles);
+    const result = await git.getChangedLines(DEFAULT_BRANCH, changedFiles);
 
     expect([...result.get(SOURCE_FILE)]).toEqual([1, 2, 12]);
     expect([...result.get(EXTRA_SOURCE_FILE)]).toEqual([20, 21]);
     expect([...result.get(NEW_SOURCE_FILE)]).toEqual([3]);
-    expect(execFileSync).toHaveBeenCalledWith(
+    expect(spawn).toHaveBeenCalledWith(
       'git',
       ['diff', '--unified=0', `${DEFAULT_BRANCH}...HEAD`, '--', ...changedFiles],
-      { encoding: 'utf8' }
+      { stdio: ['ignore', 'pipe', 'pipe'] }
     );
   });
 
-  test('returns initialized changed lines for zero files and wraps parser errors', () => {
-    expect(git.getChangedLines(DEFAULT_BRANCH, [])).toEqual(new Map());
-    expect(execFileSync).not.toHaveBeenCalled();
-
-    execFileSync.mockImplementationOnce(() => {
-      throw new Error('diff failed');
+  test('parses CRLF chunks when hunk headers are split across stream chunks', async () => {
+    const changedFiles = [SOURCE_FILE];
+    mockGitProcess({
+      stdoutChunks: [`+++ b/${SOURCE_FILE}\r\n@@ -1,0 `, '+1,2 @@\r\n@@ malformed @@\r\n'],
     });
-    expect(() => git.getChangedLines(DEFAULT_BRANCH, [SOURCE_FILE])).toThrow(
-      'Failed to get changed lines: diff failed'
-    );
+
+    const result = await git.getChangedLines(DEFAULT_BRANCH, changedFiles);
+
+    expect([...result.get(SOURCE_FILE)]).toEqual([1, 2]);
   });
 
-  test('detects dirty and clean git status', () => {
-    execFileSync.mockReturnValueOnce(` M ${SOURCE_FILE}\n`);
-    expect(git.isDirty()).toBe(true);
+  test('returns initialized changed lines for zero files and wraps parser errors', async () => {
+    await expect(git.getChangedLines(DEFAULT_BRANCH, [])).resolves.toEqual(new Map());
+    expect(spawn).not.toHaveBeenCalled();
 
-    execFileSync.mockReturnValueOnce('\n');
-    expect(git.isDirty()).toBe(false);
+    mockGitProcess({ stderr: 'diff failed', code: 1 });
+    await expect(git.getChangedLines(DEFAULT_BRANCH, [SOURCE_FILE])).rejects.toThrow('Failed to get changed lines:');
+  });
+
+  test('kills a hanging Git child when timeout is reached', async () => {
+    jest.useFakeTimers();
+    const child = new GitChild();
+    spawn.mockReturnValueOnce(child);
+
+    const promise = git.getChangedFiles(DEFAULT_BRANCH, 1);
+    const assertion = expect(promise).rejects.toThrow('Git command timed out after 1ms');
+    await jest.advanceTimersByTimeAsync(1);
+
+    await assertion;
+    expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+  });
+
+  test('detects dirty and clean git status', async () => {
+    mockGitProcess({ stdout: ` M ${SOURCE_FILE}\n` });
+    await expect(git.isDirty()).resolves.toBe(true);
+
+    mockGitProcess({ stdout: '\n' });
+    await expect(git.isDirty()).resolves.toBe(false);
   });
 });
