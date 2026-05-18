@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 
 import { DEFAULT_BRANCH, TIMEOUT_DEFAULTS } from './constants.js';
+import { addRange, rangesToChangedLinesMap } from './ranges.js';
 
 const GIT_DIFF_FILE_PREFIX = '+++ b/';
 const HUNK_HEADER_PREFIX = '@@';
@@ -223,6 +224,10 @@ function createChangedLinesMap(changedFiles) {
   return new Map(changedFiles.map((file) => [file, new Set()]));
 }
 
+function createChangedLineRangesMap(changedFiles) {
+  return new Map(changedFiles.map((file) => [file, []]));
+}
+
 /**
  * Parses the added-line range from a unified diff hunk header.
  *
@@ -230,19 +235,19 @@ function createChangedLinesMap(changedFiles) {
  * `+2,3` means changed lines `2`, `3`, and `4` in the current branch.
  *
  * @param {string} hunkHeader - Unified diff hunk header starting with `@@`.
- * @returns {number[]} Changed line numbers from the new-file side of the hunk.
+ * @returns {{start: number, end: number}|null} Changed line range from the new-file side of the hunk.
  */
 function parseChangedLineRange(hunkHeader) {
   const plusIndex = hunkHeader.indexOf('+');
 
   if (plusIndex === -1) {
-    return [];
+    return null;
   }
 
   const start = readInteger(hunkHeader, plusIndex + 1);
 
   if (!start) {
-    return [];
+    return null;
   }
 
   let lineCount = 1;
@@ -251,32 +256,36 @@ function parseChangedLineRange(hunkHeader) {
     const count = readInteger(hunkHeader, start.nextIndex + 1);
 
     if (!count) {
-      return [];
+      return null;
     }
 
     lineCount = count.number;
   }
 
-  return Array.from({ length: lineCount }, (_value, index) => start.number + index);
+  if (lineCount <= 0) {
+    return null;
+  }
+
+  return {
+    start: start.number,
+    end: start.number + lineCount - 1,
+  };
 }
 
 /**
  * Adds parsed hunk line numbers to the changed-lines map for one file.
  *
- * @param {Map<string, Set<number>>} changedLinesByFile - Mutable changed-line map.
+ * @param {Map<string, {start: number, end: number}[]>} rangesByFile - Mutable changed-line ranges map.
  * @param {string} filePath - Git-relative file path for the current diff hunk.
  * @param {string} hunkHeader - Unified diff hunk header to parse.
  * @returns {void}
  */
-function addChangedLines(changedLinesByFile, filePath, hunkHeader) {
-  const changedLines = parseChangedLineRange(hunkHeader);
-  const fileLines = changedLinesByFile.get(filePath) ?? new Set();
+function addChangedLines(rangesByFile, filePath, hunkHeader) {
+  const range = parseChangedLineRange(hunkHeader);
 
-  for (const changedLine of changedLines) {
-    fileLines.add(changedLine);
+  if (range) {
+    addRange(rangesByFile, filePath, range);
   }
-
-  changedLinesByFile.set(filePath, fileLines);
 }
 
 /**
@@ -284,18 +293,18 @@ function addChangedLines(changedLinesByFile, filePath, hunkHeader) {
  *
  * @param {string} line - One line from `git diff --unified=0` stdout.
  * @param {string|null} currentFile - Current new-file path from the diff header.
- * @param {Map<string, Set<number>>} changedLinesByFile - Mutable result map.
+ * @param {Map<string, {start: number, end: number}[]>} rangesByFile - Mutable result map.
  * @returns {string|null} Updated current file path.
  */
-function parseChangedLinesDiffLine(line, currentFile, changedLinesByFile) {
+function parseChangedLinesDiffLine(line, currentFile, rangesByFile) {
   if (line.startsWith(GIT_DIFF_FILE_PREFIX)) {
     const filePath = line.slice(GIT_DIFF_FILE_PREFIX.length);
-    changedLinesByFile.set(filePath, changedLinesByFile.get(filePath) ?? new Set());
+    rangesByFile.set(filePath, rangesByFile.get(filePath) ?? []);
     return filePath;
   }
 
   if (line.startsWith(HUNK_HEADER_PREFIX) && currentFile) {
-    addChangedLines(changedLinesByFile, currentFile, line);
+    addChangedLines(rangesByFile, currentFile, line);
   }
 
   return currentFile;
@@ -313,10 +322,10 @@ function parseChangedLinesDiffLine(line, currentFile, changedLinesByFile) {
  * @returns {Promise<Map<string, Set<number>>>} Changed line numbers by file path.
  */
 export async function getChangedLines(baseBranch, changedFiles, timeoutMs = TIMEOUT_DEFAULTS.gitTimeoutMs) {
-  const changedLinesByFile = createChangedLinesMap(changedFiles);
+  const rangesByFile = createChangedLineRangesMap(changedFiles);
 
   if (changedFiles.length === 0) {
-    return changedLinesByFile;
+    return createChangedLinesMap(changedFiles);
   }
 
   const args = ['diff', '--unified=0', `${baseBranch}...HEAD`, '--', ...changedFiles];
@@ -328,7 +337,7 @@ export async function getChangedLines(baseBranch, changedFiles, timeoutMs = TIME
     await Promise.all([
       (async () => {
         for await (const line of lines) {
-          currentFile = parseChangedLinesDiffLine(line, currentFile, changedLinesByFile);
+          currentFile = parseChangedLinesDiffLine(line, currentFile, rangesByFile);
         }
       })(),
       wait,
@@ -337,7 +346,7 @@ export async function getChangedLines(baseBranch, changedFiles, timeoutMs = TIME
     throw new Error(`Failed to get changed lines: ${error.message}`, { cause: error });
   }
 
-  return changedLinesByFile;
+  return rangesToChangedLinesMap(rangesByFile);
 }
 
 /**

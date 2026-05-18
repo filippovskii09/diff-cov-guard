@@ -2,6 +2,8 @@ import { closeSync, createReadStream, existsSync, openSync, readSync, statSync }
 import { createInterface } from 'node:readline';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 
+import { containsLine, toLineRanges } from './ranges.js';
+
 const LCOV_SOURCE_PREFIX_LENGTH = 3;
 const LCOV_LINE_PREFIX_LENGTH = 3;
 const LCOV_EMPTY_CHECK_BUFFER_SIZE = 8192;
@@ -95,7 +97,7 @@ function shouldKeepRecord(filePath, changedLinesByFile) {
 }
 
 function shouldKeepLine(lineNumber, changedLines) {
-  return !changedLines || changedLines.has(lineNumber);
+  return !changedLines || containsLine(changedLines.ranges, lineNumber, changedLines.pointer);
 }
 
 export function isLcovEmptyOrMissing(lcovPath) {
@@ -173,7 +175,8 @@ export async function parseLcov(lcovPath, options = {}) {
       const normalizedPath = normalizePath(sourcePath, options);
       if (shouldKeepRecord(normalizedPath, options.changedLinesByFile)) {
         currentRecord = createCoverageRecord(normalizedPath);
-        currentChangedLines = options.changedLinesByFile?.get(normalizedPath) ?? null;
+        const changedLines = options.changedLinesByFile?.get(normalizedPath);
+        currentChangedLines = changedLines ? { ranges: toLineRanges(changedLines), pointer: { index: 0 } } : null;
       } else {
         currentRecord = null;
         currentChangedLines = null;

@@ -1,3 +1,5 @@
+import { containsLine, iterateRanges, toLineRanges } from './ranges.js';
+
 /**
  * Builds a per-file diff coverage summary from changed lines and LCOV data.
  *
@@ -6,7 +8,7 @@
  * uncovered so newly added files cannot silently pass with 0% visibility.
  *
  * @param {string} filePath - Git-relative file path.
- * @param {Set<number>} changedLines - Line numbers changed in the current diff.
+ * @param {Set<number>|{start: number, end: number}[]} changedLines - Line numbers changed in the current diff.
  * @param {{path: string, lines: Map<number, number>}|undefined} coverageRecord - Parsed LCOV record for the file.
  * @returns {{filePath: string, changedLines: number[], executableLines: number[], coveredLines: number[], uncoveredLines: number[], hasCoverage: boolean}}
  */
@@ -14,7 +16,8 @@ function createFileResult(filePath, changedLines, coverageRecord) {
   const executableLines = [];
   const coveredLines = [];
   const uncoveredLines = [];
-  const sortedChangedLines = [...changedLines].sort((left, right) => left - right);
+  const changedLineRanges = toLineRanges(changedLines);
+  const sortedChangedLines = [...iterateRanges(changedLineRanges)];
 
   if (!coverageRecord) {
     return {
@@ -27,12 +30,16 @@ function createFileResult(filePath, changedLines, coverageRecord) {
     };
   }
 
-  for (const lineNumber of sortedChangedLines) {
-    if (!coverageRecord.lines.has(lineNumber)) {
+  const rangePointer = { index: 0 };
+  const sortedCoverageLines = [...coverageRecord.lines.entries()].sort(
+    ([leftLine], [rightLine]) => leftLine - rightLine
+  );
+
+  for (const [lineNumber, hitCount] of sortedCoverageLines) {
+    if (!containsLine(changedLineRanges, lineNumber, rangePointer)) {
       continue;
     }
 
-    const hitCount = coverageRecord.lines.get(lineNumber);
     executableLines.push(lineNumber);
 
     if (hitCount > 0) {

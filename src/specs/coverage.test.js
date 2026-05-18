@@ -70,4 +70,26 @@ describe('coverage', () => {
     expect(passesThreshold(result, FULL_COVERAGE)).toBe(true);
     expect(passesThreshold({ percentage: 89.99 }, 90)).toBe(false);
   });
+
+  test('accepts internal changed-line ranges without changing coverage results', () => {
+    const result = calculateDiffCoverage(
+      new Map([[SOURCE_FILE, [{ start: COVERED_LINE, end: UNCOVERED_LINE }]]]),
+      new Map([
+        [
+          SOURCE_FILE,
+          coverageRecord(SOURCE_FILE, [
+            [COVERED_LINE, 1],
+            [UNCOVERED_LINE, 0],
+          ]),
+        ],
+      ])
+    );
+
+    expect(result.files[0]).toMatchObject({
+      changedLines: [COVERED_LINE, UNCOVERED_LINE],
+      executableLines: [COVERED_LINE, UNCOVERED_LINE],
+      coveredLines: [COVERED_LINE],
+      uncoveredLines: [UNCOVERED_LINE],
+    });
+  });
 });
