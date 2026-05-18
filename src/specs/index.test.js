@@ -32,10 +32,9 @@ const git = {
 };
 const config = { loadConfig: jest.fn() };
 const lcov = {
-  parseLcov: jest.fn(),
+  calculateDiffCoverageFromLcovStream: jest.fn(),
 };
 const coverage = {
-  calculateDiffCoverage: jest.fn(),
   passesThreshold: jest.fn(),
 };
 const comment = {
@@ -46,7 +45,7 @@ const comment = {
 jest.unstable_mockModule('../environment.js', () => environment);
 jest.unstable_mockModule('../git.js', () => git);
 jest.unstable_mockModule('../config.js', () => config);
-jest.unstable_mockModule('../lcov.js', () => lcov);
+jest.unstable_mockModule('../lcov-stream.js', () => lcov);
 jest.unstable_mockModule('../coverage.js', () => coverage);
 jest.unstable_mockModule('../comment.js', () => comment);
 
@@ -69,12 +68,11 @@ beforeEach(() => {
   git.getRemoteDefaultBranch.mockReturnValue(DEFAULT_BRANCH);
   git.getChangedFiles.mockReturnValue([SOURCE_FILE]);
   git.getChangedLines.mockReturnValue(changedLinesMap([[SOURCE_FILE, [1]]]));
-  lcov.parseLcov.mockResolvedValue({
+  lcov.calculateDiffCoverageFromLcovStream.mockResolvedValue({
     emptyOrMissing: false,
     noRecords: false,
-    records: new Map(),
+    diffCoverage: diffCoverage(),
   });
-  coverage.calculateDiffCoverage.mockReturnValue(diffCoverage());
   coverage.passesThreshold.mockReturnValue(true);
   comment.buildCommentBody.mockReturnValue('comment body');
   comment.publishCoverageComment.mockResolvedValue();
@@ -162,10 +160,10 @@ describe('run', () => {
   });
 
   test('honors failOnEmpty for missing or empty LCOV', async () => {
-    lcov.parseLcov.mockResolvedValue({
+    lcov.calculateDiffCoverageFromLcovStream.mockResolvedValue({
       emptyOrMissing: true,
       noRecords: false,
-      records: new Map(),
+      diffCoverage: null,
     });
 
     await index.run({}, lifecycle);
@@ -186,7 +184,7 @@ describe('run', () => {
     await index.run({}, lifecycle);
 
     expect(git.fetchBranch).toHaveBeenCalledWith(CI_BASE_BRANCH, DEFAULT_GIT_TIMEOUT_MS);
-    expect(lcov.parseLcov).toHaveBeenCalledWith(DEFAULT_LCOV_PATH, {
+    expect(lcov.calculateDiffCoverageFromLcovStream).toHaveBeenCalledWith(DEFAULT_LCOV_PATH, {
       repoRoot: process.cwd(),
       rootDir: process.cwd(),
       changedLinesByFile: changedLinesMap([[SOURCE_FILE, [1]]]),
@@ -203,8 +201,10 @@ describe('run', () => {
 
   test('prints failing coverage details and exits with failure', async () => {
     const uncoveredLine = 2;
-    coverage.calculateDiffCoverage.mockReturnValue(
-      diffCoverage({
+    lcov.calculateDiffCoverageFromLcovStream.mockResolvedValue({
+      emptyOrMissing: false,
+      noRecords: false,
+      diffCoverage: diffCoverage({
         percentage: 50,
         executableLines: 2,
         files: [
@@ -214,8 +214,8 @@ describe('run', () => {
             uncoveredLines: [uncoveredLine],
           }),
         ],
-      })
-    );
+      }),
+    });
     coverage.passesThreshold.mockReturnValue(false);
 
     await index.run({ baseBranch: CLI_BASE_BRANCH }, lifecycle);
@@ -251,13 +251,15 @@ describe('run', () => {
 
   test('prints threshold failure without file details when no file has uncovered lines', async () => {
     const failingPercentage = 80;
-    coverage.calculateDiffCoverage.mockReturnValue(
-      diffCoverage({
+    lcov.calculateDiffCoverageFromLcovStream.mockResolvedValue({
+      emptyOrMissing: false,
+      noRecords: false,
+      diffCoverage: diffCoverage({
         percentage: failingPercentage,
         coveredLines: 4,
         executableLines: 5,
-      })
-    );
+      }),
+    });
     coverage.passesThreshold.mockReturnValue(false);
 
     await index.run({}, lifecycle);
@@ -268,13 +270,15 @@ describe('run', () => {
   });
 
   test('prints no-executable success report', async () => {
-    coverage.calculateDiffCoverage.mockReturnValue(
-      diffCoverage({
+    lcov.calculateDiffCoverageFromLcovStream.mockResolvedValue({
+      emptyOrMissing: false,
+      noRecords: false,
+      diffCoverage: diffCoverage({
         coveredLines: 0,
         executableLines: 0,
         files: [],
-      })
-    );
+      }),
+    });
 
     await index.run({}, lifecycle);
 

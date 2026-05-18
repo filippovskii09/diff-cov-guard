@@ -1,6 +1,6 @@
 import { extname } from 'node:path';
 
-import { calculateDiffCoverage, passesThreshold } from './coverage.js';
+import { passesThreshold } from './coverage.js';
 import {
   COMMENT_REASONS,
   COMMENT_STATUSES,
@@ -12,7 +12,7 @@ import { buildCommentBody, publishCoverageComment } from './comment.js';
 import { getEnvironment } from './environment.js';
 import { fetchBranch, getChangedFiles, getChangedLines, getRemoteDefaultBranch } from './git.js';
 import { loadConfig } from './config.js';
-import { parseLcov } from './lcov.js';
+import { calculateDiffCoverageFromLcovStream } from './lcov-stream.js';
 
 function colorize(color, message) {
   return `${color}${message}${CONSOLE_COLORS.RESET}`;
@@ -209,7 +209,7 @@ export async function run(args, lifecycle = process) {
       return;
     }
 
-    const lcovResult = await parseLcov(config.lcovPath, {
+    const lcovResult = await calculateDiffCoverageFromLcovStream(config.lcovPath, {
       repoRoot: process.cwd(),
       rootDir: config.rootDir,
       changedLinesByFile,
@@ -227,7 +227,7 @@ export async function run(args, lifecycle = process) {
       throw new Error('Invalid LCOV format: no records found');
     }
 
-    const diffCoverage = calculateDiffCoverage(changedLinesByFile, lcovResult.records);
+    const { diffCoverage } = lcovResult;
 
     printFinalReport(config, diffCoverage);
 
