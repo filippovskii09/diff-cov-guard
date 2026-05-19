@@ -13,6 +13,13 @@ export const TIMEOUT_DEFAULTS = {
   apiTimeoutMs: 10000,
 };
 
+export const CONFIG_DEFAULTS = {
+  threshold: 90,
+  lcovPath: './coverage/lcov.info',
+  gitTimeoutMs: TIMEOUT_DEFAULTS.gitTimeoutMs,
+  apiTimeoutMs: TIMEOUT_DEFAULTS.apiTimeoutMs,
+};
+
 export const CONFIG_LIMITS = {
   thresholdMin: 0,
   thresholdMax: 100,
@@ -30,12 +37,10 @@ export const ARGS_OPTIONS = {
   threshold: {
     type: 'string',
     short: 't',
-    default: '90',
   },
   lcov: {
     type: 'string',
     short: 'l',
-    default: './coverage/lcov.info',
   },
   base: {
     type: 'string',
@@ -49,11 +54,9 @@ export const ARGS_OPTIONS = {
   },
   'git-timeout-ms': {
     type: 'string',
-    default: String(TIMEOUT_DEFAULTS.gitTimeoutMs),
   },
   'api-timeout-ms': {
     type: 'string',
-    default: String(TIMEOUT_DEFAULTS.apiTimeoutMs),
   },
   comment: {
     type: 'boolean',
