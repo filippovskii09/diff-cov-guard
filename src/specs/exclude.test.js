@@ -11,8 +11,19 @@ describe('exclude', () => {
     ['src/component.spec.js', '**/*.spec.js'],
     ['component.spec.jsx', '**/*.spec.jsx'],
     ['jest.config.js', 'jest.config.js'],
+    ['src/nested/component.test.js', 'src/**/*.test.js'],
+    ['src/a/b/c/helper.js', 'src/**/helper.js'],
+    ['src/abc.js', 'src/a?c.js'],
   ])('matches %s with %s', (filePath, pattern) => {
     expect(isExcluded(filePath, [pattern])).toBe(true);
+  });
+
+  test.each([
+    ['src/nested/component.test.js', 'src/*.test.js'],
+    ['src/ac.js', 'src/a?c.js'],
+    ['src/a/b/c/helper.js', 'src/*/helper.js'],
+  ])('does not match %s with %s', (filePath, pattern) => {
+    expect(isExcluded(filePath, [pattern])).toBe(false);
   });
 
   test('filters excluded files and keeps source files that do not match exclude patterns', () => {

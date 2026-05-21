@@ -1,54 +1,11 @@
 const GLOB_SPECIAL_CHARS = new Set(['*', '?', '[', ']']);
-const REGEX_SPECIAL_CHARS = new Set(['\\', '^', '$', '.', '|', '+', '(', ')', '{', '}']);
-
+const GLOBSTAR_SLASH_LENGTH = 3;
 function normalizePattern(pattern) {
   return pattern.replaceAll('\\', '/').replace(/^\.\//, '');
 }
 
 function normalizeFilePath(filePath) {
   return filePath.replaceAll('\\', '/').replace(/^\.\//, '');
-}
-
-function escapeRegexChar(char) {
-  return REGEX_SPECIAL_CHARS.has(char) ? `\\${char}` : char;
-}
-
-function globToRegex(pattern) {
-  const normalizedPattern = normalizePattern(pattern);
-  let regex = '^';
-
-  for (let index = 0; index < normalizedPattern.length; index += 1) {
-    const char = normalizedPattern[index];
-    const nextChar = normalizedPattern[index + 1];
-    const previousChar = normalizedPattern[index - 1];
-    const afterNextChar = normalizedPattern[index + 2];
-
-    if (char === '*' && nextChar === '*' && previousChar !== '*' && afterNextChar === '/') {
-      regex += '(?:.*/)?';
-      index += 2;
-      continue;
-    }
-
-    if (char === '*' && nextChar === '*') {
-      regex += '.*';
-      index += 1;
-      continue;
-    }
-
-    if (char === '*') {
-      regex += '[^/]*';
-      continue;
-    }
-
-    if (char === '?') {
-      regex += '[^/]';
-      continue;
-    }
-
-    regex += escapeRegexChar(char);
-  }
-
-  return new RegExp(`${regex}$`);
 }
 
 function hasGlobSyntax(pattern) {
@@ -61,6 +18,46 @@ function hasGlobSyntax(pattern) {
   return false;
 }
 
+function matchesGlob(filePath, pattern) {
+  const memo = new Map();
+
+  function matches(fileIndex, patternIndex) {
+    const key = `${fileIndex}:${patternIndex}`;
+
+    if (memo.has(key)) {
+      return memo.get(key);
+    }
+
+    const char = pattern[patternIndex];
+    const nextChar = pattern[patternIndex + 1];
+    const canConsume = fileIndex < filePath.length;
+    let result;
+
+    if (patternIndex === pattern.length) {
+      result = fileIndex === filePath.length;
+    } else if (char === '*' && nextChar === '*' && pattern[patternIndex + 2] === '/') {
+      result =
+        matches(fileIndex, patternIndex + GLOBSTAR_SLASH_LENGTH) ||
+        (canConsume && matches(fileIndex + 1, patternIndex));
+    } else if (char === '*' && nextChar === '*') {
+      result = matches(fileIndex, patternIndex + 2) || (canConsume && matches(fileIndex + 1, patternIndex));
+    } else if (char === '*') {
+      result =
+        matches(fileIndex, patternIndex + 1) ||
+        (canConsume && filePath[fileIndex] !== '/' && matches(fileIndex + 1, patternIndex));
+    } else if (char === '?') {
+      result = canConsume && filePath[fileIndex] !== '/' && matches(fileIndex + 1, patternIndex + 1);
+    } else {
+      result = filePath[fileIndex] === char && matches(fileIndex + 1, patternIndex + 1);
+    }
+
+    memo.set(key, result);
+    return result;
+  }
+
+  return matches(0, 0);
+}
+
 function patternMatches(filePath, pattern) {
   const normalizedPattern = normalizePattern(pattern);
   const normalizedFilePath = normalizeFilePath(filePath);
@@ -69,7 +66,7 @@ function patternMatches(filePath, pattern) {
     return normalizedFilePath === normalizedPattern;
   }
 
-  return globToRegex(normalizedPattern).test(normalizedFilePath);
+  return matchesGlob(normalizedFilePath, normalizedPattern);
 }
 
 export function isExcluded(filePath, patterns = []) {
