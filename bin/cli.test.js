@@ -1,4 +1,6 @@
-import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
@@ -145,6 +147,28 @@ describe('cli', () => {
 
     expect(log).toHaveBeenCalledWith(`diff-cov-guard v${packageJson.version}`);
     expect(exit).toHaveBeenCalledWith(0);
+  });
+
+  test('runs automatically when launched through a .bin symlink', () => {
+    const tempDir = mkdtempSync(join(tmpdir(), 'diff-cov-guard-bin-'));
+    const binDir = join(tempDir, 'node_modules', '.bin');
+    const binPath = join(binDir, 'diff-cov-guard');
+
+    try {
+      mkdirSync(binDir, { recursive: true });
+      symlinkSync(join(process.cwd(), 'bin/cli.js'), binPath);
+
+      const result = spawnSync(process.execPath, [binPath, '--version'], {
+        cwd: process.cwd(),
+        encoding: 'utf8',
+      });
+
+      expect(result.status).toBe(0);
+      expect(result.stdout.trim()).toBe(`diff-cov-guard v${packageJson.version}`);
+      expect(result.stderr).toBe('');
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   test('prints a friendly error and exits with failure', async () => {

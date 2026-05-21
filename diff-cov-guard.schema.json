@@ -32,6 +32,14 @@
       "type": "boolean",
       "description": "Fail when the LCOV file is missing or empty."
     },
+    "exclude": {
+      "type": "array",
+      "description": "Git-relative glob patterns excluded from diff coverage checks.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
     "gitTimeoutMs": {
       "type": "integer",
       "minimum": 1,

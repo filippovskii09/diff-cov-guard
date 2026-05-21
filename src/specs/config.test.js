@@ -8,6 +8,7 @@ import { loadConfig } from '../config.js';
 import {
   CLI_BASE_BRANCH,
   COMMENT_DEFAULTS,
+  CONFIG_DEFAULTS,
   CONFIG_FILES,
   DEFAULT_API_TIMEOUT_MS,
   DEFAULT_GIT_TIMEOUT_MS,
@@ -20,6 +21,7 @@ import {
 const PACKAGE_CONFIG = {
   threshold: 70,
   lcovPath: './pkg.info',
+  exclude: ['pkg/**/*.test.js'],
   baseBranch: 'pkg-base',
   rootDir: 'pkg-root',
   failOnEmpty: false,
@@ -30,6 +32,7 @@ const PACKAGE_CONFIG = {
 const RC_CONFIG = {
   threshold: 80,
   lcovPath: './rc.info',
+  exclude: ['rc/**/*.test.js'],
   baseBranch: 'rc-base',
   rootDir: 'rc-root',
   failOnEmpty: true,
@@ -80,6 +83,7 @@ describe('config', () => {
     expect(loadConfig()).toEqual({
       threshold: DEFAULT_THRESHOLD,
       lcovPath: DEFAULT_LCOV_PATH,
+      exclude: CONFIG_DEFAULTS.exclude,
       baseBranch: undefined,
       rootDir: process.cwd(),
       failOnEmpty: false,
@@ -99,6 +103,7 @@ describe('config', () => {
     expect(loadConfig(CLI_CONFIG)).toEqual({
       threshold: Number(CLI_CONFIG.threshold),
       lcovPath: CLI_CONFIG.lcov,
+      exclude: RC_CONFIG.exclude,
       baseBranch: CLI_CONFIG.base,
       rootDir: resolve(process.cwd(), CLI_CONFIG['root-dir']),
       failOnEmpty: CLI_CONFIG['fail-on-empty'],
@@ -120,6 +125,7 @@ describe('config', () => {
     expect(loadConfig({})).toEqual({
       threshold: RC_CONFIG.threshold,
       lcovPath: RC_CONFIG.lcovPath,
+      exclude: RC_CONFIG.exclude,
       baseBranch: RC_CONFIG.baseBranch,
       rootDir: resolve(process.cwd(), RC_CONFIG.rootDir),
       failOnEmpty: RC_CONFIG.failOnEmpty,
@@ -192,6 +198,7 @@ describe('config', () => {
     expect(loadConfig()).toEqual({
       threshold: DEFAULT_THRESHOLD,
       lcovPath: DEFAULT_LCOV_PATH,
+      exclude: CONFIG_DEFAULTS.exclude,
       baseBranch: undefined,
       rootDir: process.cwd(),
       failOnEmpty: false,
@@ -228,5 +235,14 @@ describe('config', () => {
     });
 
     expect(() => loadConfig()).toThrow('Invalid config value "comment.maxFiles"');
+  });
+
+  test('rejects invalid exclude config values', () => {
+    makeTempProject();
+    writeProjectJson(CONFIG_FILES.RC_CONFIG_FILE, {
+      exclude: ['src/*.test.js', ''],
+    });
+
+    expect(() => loadConfig()).toThrow('Invalid config value "exclude"');
   });
 });

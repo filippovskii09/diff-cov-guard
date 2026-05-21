@@ -10,6 +10,7 @@ import {
 } from './constants.js';
 import { buildCommentBody, publishCoverageComment } from './comment.js';
 import { getEnvironment } from './environment.js';
+import { filterExcludedFiles } from './exclude.js';
 import { fetchBranch, getChangedFiles, getChangedLines, getRemoteDefaultBranch } from './git.js';
 import { loadConfig } from './config.js';
 import { calculateDiffCoverageFromLcovStream } from './lcov-stream.js';
@@ -28,6 +29,10 @@ function isCoverageSourceFile(filePath) {
 
 export function filterCoverageSourceFiles(changedFiles) {
   return changedFiles.filter(isCoverageSourceFile);
+}
+
+export function filterCoverageFiles(changedFiles, exclude = []) {
+  return filterExcludedFiles(filterCoverageSourceFiles(changedFiles), exclude);
 }
 
 export function hasChangedLines(changedLinesByFile) {
@@ -166,7 +171,7 @@ export async function run(args, lifecycle = process) {
     }
 
     const changedFiles = await getChangedFiles(config.baseBranch, config.gitTimeoutMs);
-    const sourceChangedFiles = filterCoverageSourceFiles(changedFiles);
+    const sourceChangedFiles = filterCoverageFiles(changedFiles, config.exclude);
 
     if (changedFiles.length === 0) {
       console.log(colorize(CONSOLE_COLORS.GREEN, '✔ Success: No changed files found.'));
@@ -182,7 +187,7 @@ export async function run(args, lifecycle = process) {
     }
 
     if (sourceChangedFiles.length === 0) {
-      console.log('ℹ Nothing to check: only non-source files changed.');
+      console.log('ℹ Nothing to check: only non-source or excluded files changed.');
       await finishRun({
         lifecycle,
         env,
@@ -224,7 +229,9 @@ export async function run(args, lifecycle = process) {
     }
 
     if (lcovResult.noRecords) {
-      throw new Error('Invalid LCOV format: no records found');
+      throw new Error(
+        'No LCOV records found for changed files. The LCOV report is valid, but none of the changed files matched its SF records.'
+      );
     }
 
     const { diffCoverage } = lcovResult;

@@ -16,6 +16,15 @@ export const TIMEOUT_DEFAULTS = {
 export const CONFIG_DEFAULTS = {
   threshold: 90,
   lcovPath: './coverage/lcov.info',
+  exclude: [
+    '**/__test__/**',
+    '**/__tests__/**',
+    '**/*.test.js',
+    '**/*.test.jsx',
+    '**/*.spec.js',
+    '**/*.spec.jsx',
+    'jest.config.js',
+  ],
   gitTimeoutMs: TIMEOUT_DEFAULTS.gitTimeoutMs,
   apiTimeoutMs: TIMEOUT_DEFAULTS.apiTimeoutMs,
 };

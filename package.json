@@ -1,6 +1,6 @@
 {
   "name": "diff-cov-guard",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "description": "CLI guard that enforces diff coverage thresholds from LCOV reports.",
   "type": "module",
   "main": "./src/index.js",

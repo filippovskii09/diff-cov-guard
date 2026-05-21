@@ -109,6 +109,7 @@ export function runConfig(overrides = {}) {
     lcovPath: DEFAULT_LCOV_PATH,
     rootDir: process.cwd(),
     failOnEmpty: false,
+    exclude: CONFIG_DEFAULTS.exclude,
     gitTimeoutMs: DEFAULT_GIT_TIMEOUT_MS,
     apiTimeoutMs: DEFAULT_API_TIMEOUT_MS,
     ...rest,

@@ -101,6 +101,18 @@ function parseOptionalString(name, value, fallback) {
   return value;
 }
 
+function parseOptionalStringArray(name, value, fallback) {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string' || item.length === 0)) {
+    throw new Error(`Invalid config value "${name}": expected an array of non-empty strings.`);
+  }
+
+  return value;
+}
+
 function resolveCommentEnabled(cliArgs, fileConfigs, env) {
   if (cliArgs.comment !== undefined) {
     return parseOptionalBoolean('comment.enabled', cliArgs.comment, undefined);
@@ -171,6 +183,7 @@ function resolveConfig(cliArgs, fileConfigs, env) {
       cliArgs.failOnEmpty ?? cliArgs['fail-on-empty'] ?? fileConfigs.failOnEmpty,
       false
     ),
+    exclude: parseOptionalStringArray('exclude', fileConfigs.exclude, CONFIG_DEFAULTS.exclude),
     gitTimeoutMs: parseOptionalInteger(
       'gitTimeoutMs',
       cliArgs['git-timeout-ms'] ?? fileConfigs.gitTimeoutMs,

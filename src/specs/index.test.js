@@ -89,6 +89,12 @@ describe('index helpers', () => {
     );
   });
 
+  test('filters excluded coverage source files', () => {
+    expect(
+      index.filterCoverageFiles([SOURCE_FILE, 'src/a.test.js', 'jest.config.js', README_FILE], ['**/*.test.js'])
+    ).toEqual([SOURCE_FILE, 'jest.config.js']);
+  });
+
   test('detects changed line presence', () => {
     expect(index.hasChangedLines(changedLinesMap([[SOURCE_FILE, []]]))).toBe(false);
     expect(index.hasChangedLines(changedLinesMap([[SOURCE_FILE, [1]]]))).toBe(true);
@@ -147,7 +153,17 @@ describe('run', () => {
     await index.run({}, lifecycle);
 
     expect(lifecycle.exit).toHaveBeenCalledWith(0);
-    expect(logs.log).toHaveBeenCalledWith('ℹ Nothing to check: only non-source files changed.');
+    expect(logs.log).toHaveBeenCalledWith('ℹ Nothing to check: only non-source or excluded files changed.');
+  });
+
+  test('exits successfully when only excluded source files changed', async () => {
+    git.getChangedFiles.mockReturnValue(['src/a.test.js']);
+
+    await index.run({}, lifecycle);
+
+    expect(git.getChangedLines).not.toHaveBeenCalled();
+    expect(lifecycle.exit).toHaveBeenCalledWith(0);
+    expect(logs.log).toHaveBeenCalledWith('ℹ Nothing to check: only non-source or excluded files changed.');
   });
 
   test('exits successfully when source files have no changed lines', async () => {
@@ -284,6 +300,21 @@ describe('run', () => {
 
     expect(logs.log).toHaveBeenCalledWith(expect.stringContaining('No executable changes'));
     expect(lifecycle.exit).toHaveBeenCalledWith(0);
+  });
+
+  test('reports missing matching LCOV records without calling the LCOV invalid', async () => {
+    lcov.calculateDiffCoverageFromLcovStream.mockResolvedValue({
+      emptyOrMissing: false,
+      noRecords: true,
+      diffCoverage: null,
+    });
+
+    await index.run({}, lifecycle);
+
+    expect(logs.error).toHaveBeenCalledWith(
+      expect.stringContaining('No LCOV records found for changed files. The LCOV report is valid')
+    );
+    expect(lifecycle.exit).toHaveBeenCalledWith(1);
   });
 
   test('wraps dependency errors with failure exit', async () => {
