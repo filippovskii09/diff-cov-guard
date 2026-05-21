@@ -118,7 +118,7 @@ describe('git', () => {
   test('fetches branch successfully and retries by setting origin head once', async () => {
     mockGitProcess({});
     mockGitProcess({});
-    await git.fetchBranch(DEVELOP_BRANCH);
+    await expect(git.fetchBranch(DEVELOP_BRANCH)).resolves.toBe(`origin/${DEVELOP_BRANCH}`);
     expect(spawn.mock.calls).toEqual([checkRefFormatCall(DEVELOP_BRANCH), fetchCall(DEVELOP_BRANCH)]);
 
     spawn.mockReset();
@@ -135,6 +135,22 @@ describe('git', () => {
       setOriginHeadCall(RELEASE_BRANCH),
       fetchCall(RELEASE_BRANCH),
     ]);
+  });
+
+  test('fetches normalized remote branch while preserving remote diff refs', async () => {
+    mockGitProcess({});
+    mockGitProcess({});
+    await expect(git.fetchBranch(`origin/${DEVELOP_BRANCH}`)).resolves.toBe(`origin/${DEVELOP_BRANCH}`);
+    expect(spawn.mock.calls).toEqual([checkRefFormatCall(DEVELOP_BRANCH), fetchCall(DEVELOP_BRANCH)]);
+
+    spawn.mockReset();
+    mockGitProcess({});
+    mockGitProcess({});
+
+    await expect(git.fetchBranch(`refs/remotes/origin/${RELEASE_BRANCH}`)).resolves.toBe(
+      `refs/remotes/origin/${RELEASE_BRANCH}`
+    );
+    expect(spawn.mock.calls).toEqual([checkRefFormatCall(RELEASE_BRANCH), fetchCall(RELEASE_BRANCH)]);
   });
 
   test('throws when fetch retry fails with stderr context', async () => {

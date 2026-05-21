@@ -126,7 +126,20 @@ jobs:
       - run: npx -y diff-cov-guard
 ```
 
-`fetch-depth: 0` is important because the guard compares the pull request branch with its base branch.
+`fetch-depth: 0` is important because the guard compares the pull request branch with its base branch. In pull request
+workflows, keep the `pull_request` checkout context or pass the comparison branch explicitly:
+
+```yaml
+- run: npx -y diff-cov-guard --base "${{ github.base_ref }}"
+```
+
+You can also set `DIFF_COVER_COMPARE_BRANCH` when another tool already provides the desired comparison ref:
+
+```yaml
+- run: npx -y diff-cov-guard
+  env:
+    DIFF_COVER_COMPARE_BRANCH: origin/main
+```
 
 For GitHub PR comments, the guard uses `DIFF_COV_GUARD_GITHUB_TOKEN` first and falls back to `GITHUB_TOKEN`. The comment
 is a single stable issue comment that is updated on each run.
@@ -144,6 +157,9 @@ diff_coverage:
   rules:
     - if: $CI_MERGE_REQUEST_ID
 ```
+
+Set `DIFF_COVER_COMPARE_BRANCH` if your GitLab pipeline checks out a ref where
+`CI_MERGE_REQUEST_TARGET_BRANCH_NAME` is unavailable or not the branch you want to compare against.
 
 For GitLab MR comments, set `DIFF_COV_GUARD_GITLAB_TOKEN` or `GITLAB_TOKEN` with permission to create and update merge
 request notes. The guard does not rely on `CI_JOB_TOKEN` for writing notes.

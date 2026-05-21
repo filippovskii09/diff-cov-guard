@@ -66,6 +66,7 @@ beforeEach(() => {
   environment.getEnvironment.mockReturnValue(localEnvironment());
   config.loadConfig.mockReturnValue(runConfig());
   git.getRemoteDefaultBranch.mockReturnValue(DEFAULT_BRANCH);
+  git.fetchBranch.mockResolvedValue(CI_BASE_BRANCH);
   git.getChangedFiles.mockReturnValue([SOURCE_FILE]);
   git.getChangedLines.mockReturnValue(changedLinesMap([[SOURCE_FILE, [1]]]));
   lcov.calculateDiffCoverageFromLcovStream.mockResolvedValue({
@@ -200,6 +201,8 @@ describe('run', () => {
     await index.run({}, lifecycle);
 
     expect(git.fetchBranch).toHaveBeenCalledWith(CI_BASE_BRANCH, DEFAULT_GIT_TIMEOUT_MS);
+    expect(git.getChangedFiles).toHaveBeenCalledWith(CI_BASE_BRANCH, DEFAULT_GIT_TIMEOUT_MS);
+    expect(git.getChangedLines).toHaveBeenCalledWith(CI_BASE_BRANCH, [SOURCE_FILE], DEFAULT_GIT_TIMEOUT_MS);
     expect(lcov.calculateDiffCoverageFromLcovStream).toHaveBeenCalledWith(DEFAULT_LCOV_PATH, {
       repoRoot: process.cwd(),
       rootDir: process.cwd(),
@@ -213,6 +216,17 @@ describe('run', () => {
       body: 'comment body',
     });
     expect(lifecycle.exit).toHaveBeenCalledWith(0);
+  });
+
+  test('uses fetched remote diff ref in CI when base input is a branch name', async () => {
+    environment.getEnvironment.mockReturnValue(ciEnvironment({ type: ENV_TYPES.GITHUB, baseBranch: DEFAULT_BRANCH }));
+    git.fetchBranch.mockResolvedValue(`origin/${DEFAULT_BRANCH}`);
+
+    await index.run({}, lifecycle);
+
+    expect(git.fetchBranch).toHaveBeenCalledWith(DEFAULT_BRANCH, DEFAULT_GIT_TIMEOUT_MS);
+    expect(git.getChangedFiles).toHaveBeenCalledWith(`origin/${DEFAULT_BRANCH}`, DEFAULT_GIT_TIMEOUT_MS);
+    expect(git.getChangedLines).toHaveBeenCalledWith(`origin/${DEFAULT_BRANCH}`, [SOURCE_FILE], DEFAULT_GIT_TIMEOUT_MS);
   });
 
   test('prints failing coverage details and exits with failure', async () => {

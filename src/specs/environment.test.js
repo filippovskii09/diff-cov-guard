@@ -65,14 +65,45 @@ describe('environment', () => {
     });
   });
 
-  test('detects GitLab CI metadata with missing branch values preserved', () => {
+  test('uses DIFF_COVER_COMPARE_BRANCH before provider base branch metadata', () => {
+    setEnv({
+      GITHUB_ACTIONS: 'true',
+      DIFF_COVER_COMPARE_BRANCH: 'origin/develop',
+      GITHUB_BASE_REF: DEFAULT_BRANCH,
+    });
+
+    expect(getEnvironment()).toEqual(
+      expect.objectContaining({
+        type: ENV_TYPES.GITHUB,
+        isCI: true,
+        baseBranch: 'origin/develop',
+      })
+    );
+  });
+
+  test('ignores empty provider base branch metadata so callers can fall back', () => {
+    setEnv({
+      GITHUB_ACTIONS: 'true',
+      GITHUB_BASE_REF: '',
+    });
+
+    expect(getEnvironment()).toEqual(
+      expect.objectContaining({
+        type: ENV_TYPES.GITHUB,
+        isCI: true,
+        baseBranch: null,
+      })
+    );
+  });
+
+  test('detects GitLab CI metadata with missing branch values normalized', () => {
     setEnv({ GITLAB_CI: 'true' });
 
     expect(getEnvironment()).toEqual({
       type: ENV_TYPES.GITLAB,
       isCI: true,
-      baseBranch: undefined,
-      currentBranch: undefined,
+      baseBranch: null,
+      currentBranch: null,
       apiUrl: undefined,
       projectId: undefined,
       projectUrl: undefined,

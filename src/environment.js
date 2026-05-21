@@ -15,6 +15,16 @@ function readGitHubPullRequestNumber(eventPath) {
   }
 }
 
+function readOptionalEnv(name) {
+  const value = process.env[name];
+
+  if (value === undefined || value.trim() === '') {
+    return null;
+  }
+
+  return value;
+}
+
 /**
  * Detects the execution environment from supported CI variables.
  *
@@ -29,8 +39,8 @@ export const getEnvironment = () => {
     return {
       type: ENV_TYPES.GITHUB,
       isCI: true,
-      baseBranch: process.env.GITHUB_BASE_REF,
-      currentBranch: process.env.GITHUB_REF_NAME,
+      baseBranch: readOptionalEnv('DIFF_COVER_COMPARE_BRANCH') ?? readOptionalEnv('GITHUB_BASE_REF'),
+      currentBranch: readOptionalEnv('GITHUB_REF_NAME'),
       apiUrl: process.env.GITHUB_API_URL,
       repository: process.env.GITHUB_REPOSITORY,
       pullRequestNumber: readGitHubPullRequestNumber(process.env.GITHUB_EVENT_PATH),
@@ -44,8 +54,9 @@ export const getEnvironment = () => {
     return {
       type: ENV_TYPES.GITLAB,
       isCI: true,
-      baseBranch: process.env.CI_MERGE_REQUEST_TARGET_BRANCH_NAME,
-      currentBranch: process.env.CI_COMMIT_REF_NAME ?? process.env.GITLAB_COMMIT_REF_NAME,
+      baseBranch:
+        readOptionalEnv('DIFF_COVER_COMPARE_BRANCH') ?? readOptionalEnv('CI_MERGE_REQUEST_TARGET_BRANCH_NAME'),
+      currentBranch: readOptionalEnv('CI_COMMIT_REF_NAME') ?? readOptionalEnv('GITLAB_COMMIT_REF_NAME'),
       apiUrl: process.env.CI_API_V4_URL,
       projectId: process.env.CI_PROJECT_ID,
       projectUrl: process.env.CI_PROJECT_URL,

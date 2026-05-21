@@ -45,6 +45,29 @@ function remoteTrackingRef(branch) {
   return `refs/remotes/origin/${branch}`;
 }
 
+function remoteShortRef(branch) {
+  return `origin/${branch}`;
+}
+
+function normalizeRemoteBase(baseRef) {
+  if (baseRef.startsWith('refs/remotes/origin/')) {
+    const branch = baseRef.slice('refs/remotes/origin/'.length);
+    return { branch, diffRef: baseRef };
+  }
+
+  if (baseRef.startsWith('origin/')) {
+    const branch = baseRef.slice('origin/'.length);
+    return { branch, diffRef: baseRef };
+  }
+
+  if (baseRef.startsWith('refs/heads/')) {
+    const branch = baseRef.slice('refs/heads/'.length);
+    return { branch, diffRef: remoteShortRef(branch) };
+  }
+
+  return { branch: baseRef, diffRef: remoteShortRef(baseRef) };
+}
+
 function startGit(args, timeoutMs = TIMEOUT_DEFAULTS.gitTimeoutMs) {
   const child = spawn('git', args, {
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -173,22 +196,31 @@ export async function getRemoteDefaultBranch(timeoutMs = TIMEOUT_DEFAULTS.gitTim
  *
  * @param {string} branch - Branch name expected to exist on the `origin` remote.
  * @param {number} [timeoutMs] - Git command timeout in milliseconds.
- * @returns {Promise<void>} Resolves when the branch is available locally.
+ * @returns {Promise<string>} Git ref that should be used for diff comparisons.
  */
 export async function fetchBranch(branch, timeoutMs = TIMEOUT_DEFAULTS.gitTimeoutMs) {
-  await assertValidBranch(branch, timeoutMs);
+  const remoteBase = normalizeRemoteBase(branch);
+  await assertValidBranch(remoteBase.branch, timeoutMs);
 
   try {
-    console.log(`Fetching ${branch}`);
-    await runGitText(['fetch', 'origin', `${branch}:${remoteTrackingRef(branch)}`, '--quiet'], timeoutMs);
+    console.log(`Fetching ${remoteBase.branch}`);
+    await runGitText(
+      ['fetch', 'origin', `${remoteBase.branch}:${remoteTrackingRef(remoteBase.branch)}`, '--quiet'],
+      timeoutMs
+    );
   } catch {
     try {
-      await runGitText(['remote', 'set-head', 'origin', branch], timeoutMs);
-      await runGitText(['fetch', 'origin', `${branch}:${remoteTrackingRef(branch)}`, '--quiet'], timeoutMs);
+      await runGitText(['remote', 'set-head', 'origin', remoteBase.branch], timeoutMs);
+      await runGitText(
+        ['fetch', 'origin', `${remoteBase.branch}:${remoteTrackingRef(remoteBase.branch)}`, '--quiet'],
+        timeoutMs
+      );
     } catch (error) {
       throw new Error(`Failed to fetch ${branch}: ${error.message}`, { cause: error });
     }
   }
+
+  return remoteBase.diffRef;
 }
 
 /**

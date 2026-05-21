@@ -166,11 +166,13 @@ export async function run(args, lifecycle = process) {
 
     console.log(`Environment: ${env.type.toUpperCase()}`);
 
+    let diffRef = config.baseBranch;
+
     if (env.isCI) {
-      await fetchBranch(config.baseBranch, config.gitTimeoutMs);
+      diffRef = await fetchBranch(config.baseBranch, config.gitTimeoutMs);
     }
 
-    const changedFiles = await getChangedFiles(config.baseBranch, config.gitTimeoutMs);
+    const changedFiles = await getChangedFiles(diffRef, config.gitTimeoutMs);
     const sourceChangedFiles = filterCoverageFiles(changedFiles, config.exclude);
 
     if (changedFiles.length === 0) {
@@ -199,7 +201,7 @@ export async function run(args, lifecycle = process) {
       return;
     }
 
-    const changedLinesByFile = await getChangedLines(config.baseBranch, sourceChangedFiles, config.gitTimeoutMs);
+    const changedLinesByFile = await getChangedLines(diffRef, sourceChangedFiles, config.gitTimeoutMs);
 
     if (!hasChangedLines(changedLinesByFile)) {
       console.log('ℹ No new executable lines found in this PR. Skipping.');
