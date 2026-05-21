@@ -123,7 +123,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:cov
-      - run: npx diff-cov-guard
+      - run: npx -y diff-cov-guard
 ```
 
 `fetch-depth: 0` is important because the guard compares the pull request branch with its base branch.
@@ -140,7 +140,7 @@ diff_coverage:
   script:
     - npm ci
     - npm run test:cov
-    - npx diff-cov-guard
+    - npx -y diff-cov-guard
   rules:
     - if: $CI_MERGE_REQUEST_ID
 ```
