@@ -3,10 +3,10 @@ import {
   COMMENT_DEFAULTS,
   COMMENT_REASONS,
   COMMENT_STATUSES,
+  CONFIG_DEFAULTS,
   CONFIG_FILES,
   DEFAULT_BRANCH,
   ENV_TYPES,
-  TIMEOUT_DEFAULTS,
 } from '../../constants.js';
 
 export {
@@ -14,16 +14,16 @@ export {
   COMMENT_DEFAULTS,
   COMMENT_REASONS,
   COMMENT_STATUSES,
+  CONFIG_DEFAULTS,
   CONFIG_FILES,
   DEFAULT_BRANCH,
   ENV_TYPES,
-  TIMEOUT_DEFAULTS,
 };
 
-export const DEFAULT_THRESHOLD = Number(ARGS_OPTIONS.threshold.default);
-export const DEFAULT_LCOV_PATH = ARGS_OPTIONS.lcov.default;
-export const DEFAULT_GIT_TIMEOUT_MS = TIMEOUT_DEFAULTS.gitTimeoutMs;
-export const DEFAULT_API_TIMEOUT_MS = TIMEOUT_DEFAULTS.apiTimeoutMs;
+export const DEFAULT_THRESHOLD = CONFIG_DEFAULTS.threshold;
+export const DEFAULT_LCOV_PATH = CONFIG_DEFAULTS.lcovPath;
+export const DEFAULT_GIT_TIMEOUT_MS = CONFIG_DEFAULTS.gitTimeoutMs;
+export const DEFAULT_API_TIMEOUT_MS = CONFIG_DEFAULTS.apiTimeoutMs;
 export const CURRENT_BRANCH = 'feature';
 export const DEVELOP_BRANCH = 'develop';
 export const RELEASE_BRANCH = 'release';

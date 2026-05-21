@@ -1,14 +1,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 
-import {
-  ARGS_OPTIONS,
-  COMMENT_DEFAULTS,
-  CONFIG_FILES,
-  CONFIG_LIMITS,
-  ENV_TYPES,
-  TIMEOUT_DEFAULTS,
-} from './constants.js';
+import { COMMENT_DEFAULTS, CONFIG_DEFAULTS, CONFIG_FILES, CONFIG_LIMITS, ENV_TYPES } from './constants.js';
 
 function readJsonFile(filePath, label) {
   if (!existsSync(filePath)) {
@@ -150,7 +143,7 @@ function resolveCommentConfig(cliArgs, fileConfigs, env) {
 }
 
 function resolveConfig(cliArgs, fileConfigs, env) {
-  const lcovPath = parseOptionalString('lcovPath', cliArgs.lcov ?? fileConfigs.lcovPath, ARGS_OPTIONS.lcov.default);
+  const lcovPath = parseOptionalString('lcovPath', cliArgs.lcov ?? fileConfigs.lcovPath, CONFIG_DEFAULTS.lcovPath);
   const baseBranch = parseOptionalString(
     'baseBranch',
     cliArgs.baseBranch ?? cliArgs.base ?? fileConfigs.baseBranch,
@@ -166,7 +159,7 @@ function resolveConfig(cliArgs, fileConfigs, env) {
     threshold: parseOptionalFiniteNumber(
       'threshold',
       cliArgs.threshold ?? fileConfigs.threshold,
-      Number(ARGS_OPTIONS.threshold.default),
+      CONFIG_DEFAULTS.threshold,
       CONFIG_LIMITS.thresholdMin,
       CONFIG_LIMITS.thresholdMax
     ),
@@ -181,14 +174,14 @@ function resolveConfig(cliArgs, fileConfigs, env) {
     gitTimeoutMs: parseOptionalInteger(
       'gitTimeoutMs',
       cliArgs['git-timeout-ms'] ?? fileConfigs.gitTimeoutMs,
-      TIMEOUT_DEFAULTS.gitTimeoutMs,
+      CONFIG_DEFAULTS.gitTimeoutMs,
       CONFIG_LIMITS.gitTimeoutMsMin,
       CONFIG_LIMITS.gitTimeoutMsMax
     ),
     apiTimeoutMs: parseOptionalInteger(
       'apiTimeoutMs',
       cliArgs['api-timeout-ms'] ?? fileConfigs.apiTimeoutMs,
-      TIMEOUT_DEFAULTS.apiTimeoutMs,
+      CONFIG_DEFAULTS.apiTimeoutMs,
       CONFIG_LIMITS.apiTimeoutMsMin,
       CONFIG_LIMITS.apiTimeoutMsMax
     ),

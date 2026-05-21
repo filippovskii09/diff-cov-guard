@@ -113,6 +113,22 @@ describe('config', () => {
     });
   });
 
+  test('uses rc config values when CLI args are empty', () => {
+    makeTempProject();
+    writeProjectJson(CONFIG_FILES.RC_CONFIG_FILE, RC_CONFIG);
+
+    expect(loadConfig({})).toEqual({
+      threshold: RC_CONFIG.threshold,
+      lcovPath: RC_CONFIG.lcovPath,
+      baseBranch: RC_CONFIG.baseBranch,
+      rootDir: resolve(process.cwd(), RC_CONFIG.rootDir),
+      failOnEmpty: RC_CONFIG.failOnEmpty,
+      gitTimeoutMs: RC_CONFIG.gitTimeoutMs,
+      apiTimeoutMs: RC_CONFIG.apiTimeoutMs,
+      comment: RC_CONFIG.comment,
+    });
+  });
+
   test('enables comments by default in supported CI environments', () => {
     makeTempProject();
 

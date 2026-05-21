@@ -5,7 +5,7 @@ import { isAbsolute, join, relative } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 
-import { ARGS_OPTIONS, CONFIG_FILES, DEFAULT_BRANCH } from './constants.js';
+import { CONFIG_DEFAULTS, CONFIG_FILES, DEFAULT_BRANCH } from './constants.js';
 
 const COMMON_LCOV_PATHS = ['./coverage/lcov.info', './test-results/lcov.info'];
 const MAX_SEARCH_DEPTH = 3;
@@ -148,8 +148,8 @@ function createQuestioner() {
 
 async function askThreshold(questioner) {
   while (true) {
-    const answer = await questioner.ask('Enter desired coverage threshold (default: 90): ');
-    const threshold = parseThreshold(answer.trim() || ARGS_OPTIONS.threshold.default);
+    const answer = await questioner.ask(`Enter desired coverage threshold (default: ${CONFIG_DEFAULTS.threshold}): `);
+    const threshold = parseThreshold(answer.trim() || String(CONFIG_DEFAULTS.threshold));
 
     if (threshold !== null) {
       return threshold;
@@ -160,7 +160,7 @@ async function askThreshold(questioner) {
 }
 
 async function askLcovPath(questioner, detectedLcovPath, cwd) {
-  const fallbackPath = ARGS_OPTIONS.lcov.default;
+  const fallbackPath = CONFIG_DEFAULTS.lcovPath;
   const defaultPath = detectedLcovPath ?? fallbackPath;
 
   while (true) {

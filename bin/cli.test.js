@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, jest, test } from '@jest/globals';
 
-import { CONFIG_FILES, DEFAULT_BASE_BRANCH } from '../src/constants.js';
+import { CONFIG_DEFAULTS, CONFIG_FILES, DEFAULT_BASE_BRANCH } from '../src/constants.js';
 
 const run = jest.fn();
 const runInit = jest.fn();
@@ -52,6 +52,8 @@ describe('cli', () => {
 
     expect(lifecycle.log).toHaveBeenCalledWith(expect.stringContaining('Usage:'));
     expect(lifecycle.log).toHaveBeenCalledWith(expect.stringContaining(DEFAULT_BASE_BRANCH));
+    expect(lifecycle.log).toHaveBeenCalledWith(expect.stringContaining(`default: ${CONFIG_DEFAULTS.threshold}`));
+    expect(lifecycle.log).toHaveBeenCalledWith(expect.stringContaining(`default: ${CONFIG_DEFAULTS.lcovPath}`));
     expect(lifecycle.exit).toHaveBeenCalledWith(0);
     expect(run).not.toHaveBeenCalled();
   });
@@ -111,6 +113,15 @@ describe('cli', () => {
       'comment-max-lines-per-file': '6',
       'comment-fail-on-error': true,
     });
+    expect(lifecycle.exit).not.toHaveBeenCalled();
+  });
+
+  test('does not pass implicit defaults to the coverage workflow', async () => {
+    const lifecycle = createLifecycle();
+
+    await cli.main([], lifecycle);
+
+    expect(run).toHaveBeenCalledWith({});
     expect(lifecycle.exit).not.toHaveBeenCalled();
   });
 
