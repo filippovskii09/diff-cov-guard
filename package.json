@@ -37,7 +37,7 @@
   "author": "Artur Filippovskii",
   "repository": {
     "type": "git",
-    "url": "https://github.com/filippovskii09/diff-cov-guard"
+    "url": "git+https://github.com/filippovskii09/diff-cov-guard.git"
   },
   "license": "ISC",
   "devDependencies": {
