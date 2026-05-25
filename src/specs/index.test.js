@@ -144,7 +144,16 @@ describe('run', () => {
     expect(lifecycle.exit).toHaveBeenCalledWith(0);
     expect(logs.log).toHaveBeenCalledWith(expect.stringContaining('No changed files found'));
     expect(comment.buildCommentBody).toHaveBeenCalledWith(
-      expect.objectContaining({ status: COMMENT_STATUSES.SKIPPED, reason: COMMENT_REASONS.NO_CHANGED_FILES })
+      expect.objectContaining({
+        status: COMMENT_STATUSES.SKIPPED,
+        reason: COMMENT_REASONS.NO_CHANGED_FILES,
+        runContext: expect.objectContaining({
+          changedFiles: [],
+          sourceFiles: [],
+          checkedFileCount: 0,
+          lcovPath: DEFAULT_LCOV_PATH,
+        }),
+      })
     );
   });
 
@@ -155,17 +164,30 @@ describe('run', () => {
 
     expect(lifecycle.exit).toHaveBeenCalledWith(0);
     expect(logs.log).toHaveBeenCalledWith('ℹ Nothing to check: only non-source or excluded files changed.');
+    expect(comment.buildCommentBody).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: COMMENT_STATUSES.SKIPPED,
+        runContext: expect.objectContaining({
+          changedFiles: [README_FILE],
+          sourceFiles: [],
+          checkedFileCount: 0,
+        }),
+      })
+    );
   });
 
-  test('exits successfully when only excluded source files changed', async () => {
-    git.getChangedFiles.mockReturnValue(['src/a.test.js']);
+  test.each(['src/a.test.js', 'src/a.test.ts', 'jest.config.ts'])(
+    'exits successfully when only default-excluded source file %s changed',
+    async (excludedFile) => {
+      git.getChangedFiles.mockReturnValue([excludedFile]);
 
-    await index.run({}, lifecycle);
+      await index.run({}, lifecycle);
 
-    expect(git.getChangedLines).not.toHaveBeenCalled();
-    expect(lifecycle.exit).toHaveBeenCalledWith(0);
-    expect(logs.log).toHaveBeenCalledWith('ℹ Nothing to check: only non-source or excluded files changed.');
-  });
+      expect(git.getChangedLines).not.toHaveBeenCalled();
+      expect(lifecycle.exit).toHaveBeenCalledWith(0);
+      expect(logs.log).toHaveBeenCalledWith('ℹ Nothing to check: only non-source or excluded files changed.');
+    }
+  );
 
   test('exits successfully when source files have no changed lines', async () => {
     git.getChangedLines.mockReturnValue(changedLinesMap([[SOURCE_FILE, []]]));
@@ -174,6 +196,17 @@ describe('run', () => {
 
     expect(lifecycle.exit).toHaveBeenCalledWith(0);
     expect(logs.log).toHaveBeenCalledWith('ℹ No new executable lines found in this PR. Skipping.');
+    expect(comment.buildCommentBody).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: COMMENT_STATUSES.SKIPPED,
+        reason: COMMENT_REASONS.NO_EXECUTABLE_CHANGED_LINES,
+        runContext: expect.objectContaining({
+          changedFiles: [SOURCE_FILE],
+          sourceFiles: [SOURCE_FILE],
+          checkedFileCount: 1,
+        }),
+      })
+    );
   });
 
   test('honors failOnEmpty for missing or empty LCOV', async () => {
@@ -215,6 +248,15 @@ describe('run', () => {
       config: expect.any(Object),
       body: 'comment body',
     });
+    expect(comment.buildCommentBody).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runContext: expect.objectContaining({
+          diffRef: CI_BASE_BRANCH,
+          lcovPath: DEFAULT_LCOV_PATH,
+          checkedFileCount: 1,
+        }),
+      })
+    );
     expect(lifecycle.exit).toHaveBeenCalledWith(0);
   });
 
@@ -327,6 +369,16 @@ describe('run', () => {
 
     expect(logs.error).toHaveBeenCalledWith(
       expect.stringContaining('No LCOV records found for changed files. The LCOV report is valid')
+    );
+    expect(comment.buildCommentBody).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: COMMENT_STATUSES.FAILED,
+        reason: COMMENT_REASONS.NO_LCOV_MATCH,
+        runContext: expect.objectContaining({
+          sourceFiles: [SOURCE_FILE],
+          lcovPath: DEFAULT_LCOV_PATH,
+        }),
+      })
     );
     expect(lifecycle.exit).toHaveBeenCalledWith(1);
   });

@@ -77,6 +77,18 @@ describe('lcov stream accumulator', () => {
 
   test('handles whitespace-only, missing final newline, and malformed records', async () => {
     await expect(
+      calculateDiffCoverageFromLcovStream(join(tempDir ?? tmpdir(), 'missing.info'), {
+        changedLinesByFile: new Map(),
+      })
+    ).resolves.toMatchObject({
+      emptyOrMissing: true,
+    });
+    await expect(
+      calculateDiffCoverageFromLcovStream(tempFile(''), { changedLinesByFile: new Map() })
+    ).resolves.toMatchObject({
+      emptyOrMissing: true,
+    });
+    await expect(
       calculateDiffCoverageFromLcovStream(tempFile(' \n\t '), { changedLinesByFile: new Map() })
     ).resolves.toMatchObject({
       emptyOrMissing: true,
@@ -98,11 +110,32 @@ describe('lcov stream accumulator', () => {
         changedLinesByFile: changedLinesMap([[SOURCE_FILE, [LCOV_HIT_LINE]]]),
       })
     ).rejects.toThrow('malformed DA record');
+    await expect(
+      calculateDiffCoverageFromLcovStream(tempFile(`SF:${SOURCE_FILE}\nDA:1\n`), {
+        changedLinesByFile: changedLinesMap([[SOURCE_FILE, [LCOV_HIT_LINE]]]),
+      })
+    ).rejects.toThrow('malformed DA record');
+    await expect(
+      calculateDiffCoverageFromLcovStream(tempFile(`SF:${SOURCE_FILE}\nDA:1,\n`), {
+        changedLinesByFile: changedLinesMap([[SOURCE_FILE, [LCOV_HIT_LINE]]]),
+      })
+    ).rejects.toThrow('malformed DA record');
 
     await expect(
       calculateDiffCoverageFromLcovStream(tempFile('SF:   \n'), {
         changedLinesByFile: changedLinesMap([[SOURCE_FILE, [LCOV_HIT_LINE]]]),
       })
     ).rejects.toThrow('empty SF record');
+  });
+
+  test('returns no records for non-empty LCOV content without matching SF records', async () => {
+    await expect(
+      calculateDiffCoverageFromLcovStream(tempFile('TN:test\n'), {
+        changedLinesByFile: changedLinesMap([[SOURCE_FILE, [LCOV_HIT_LINE]]]),
+      })
+    ).resolves.toMatchObject({
+      emptyOrMissing: false,
+      noRecords: true,
+    });
   });
 });

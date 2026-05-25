@@ -123,8 +123,8 @@ function exitWith(lifecycle, code) {
   lifecycle.exit(code);
 }
 
-async function finishRun({ lifecycle, env, config, status, exitCode, diffCoverage, reason }) {
-  const body = buildCommentBody({ status, config, diffCoverage, reason, env });
+async function finishRun({ lifecycle, env, config, status, exitCode, diffCoverage, reason, runContext }) {
+  const body = buildCommentBody({ status, config, diffCoverage, reason, env, runContext });
 
   try {
     await publishCoverageComment({ env, config, body });
@@ -174,6 +174,14 @@ export async function run(args, lifecycle = process) {
 
     const changedFiles = await getChangedFiles(diffRef, config.gitTimeoutMs);
     const sourceChangedFiles = filterCoverageFiles(changedFiles, config.exclude);
+    const runContext = {
+      baseBranch: config.baseBranch,
+      diffRef,
+      lcovPath: config.lcovPath,
+      changedFiles,
+      sourceFiles: sourceChangedFiles,
+      checkedFileCount: sourceChangedFiles.length,
+    };
 
     if (changedFiles.length === 0) {
       console.log(colorize(CONSOLE_COLORS.GREEN, '✔ Success: No changed files found.'));
@@ -184,6 +192,7 @@ export async function run(args, lifecycle = process) {
         status: COMMENT_STATUSES.SKIPPED,
         exitCode: EXIT_CODES.SUCCESS,
         reason: COMMENT_REASONS.NO_CHANGED_FILES,
+        runContext,
       });
       return;
     }
@@ -197,6 +206,7 @@ export async function run(args, lifecycle = process) {
         status: COMMENT_STATUSES.SKIPPED,
         exitCode: EXIT_CODES.SUCCESS,
         reason: COMMENT_REASONS.ONLY_NON_SOURCE_FILES,
+        runContext,
       });
       return;
     }
@@ -212,6 +222,7 @@ export async function run(args, lifecycle = process) {
         status: COMMENT_STATUSES.SKIPPED,
         exitCode: EXIT_CODES.SUCCESS,
         reason: COMMENT_REASONS.NO_EXECUTABLE_CHANGED_LINES,
+        runContext,
       });
       return;
     }
@@ -226,14 +237,32 @@ export async function run(args, lifecycle = process) {
       const exitCode = config.failOnEmpty ? EXIT_CODES.FAILURE : EXIT_CODES.SUCCESS;
       const status = config.failOnEmpty ? COMMENT_STATUSES.FAILED : COMMENT_STATUSES.SKIPPED;
       console.warn('WARN: LCOV file is empty or missing. Skipping coverage check.');
-      await finishRun({ lifecycle, env, config, status, exitCode, reason: COMMENT_REASONS.LCOV_EMPTY_OR_MISSING });
+      await finishRun({
+        lifecycle,
+        env,
+        config,
+        status,
+        exitCode,
+        reason: COMMENT_REASONS.LCOV_EMPTY_OR_MISSING,
+        runContext,
+      });
       return;
     }
 
     if (lcovResult.noRecords) {
-      throw new Error(
-        'No LCOV records found for changed files. The LCOV report is valid, but none of the changed files matched its SF records.'
+      console.error(
+        'Error: No LCOV records found for changed files. The LCOV report is valid, but none of the changed files matched its SF records.'
       );
+      await finishRun({
+        lifecycle,
+        env,
+        config,
+        status: COMMENT_STATUSES.FAILED,
+        exitCode: EXIT_CODES.FAILURE,
+        reason: COMMENT_REASONS.NO_LCOV_MATCH,
+        runContext,
+      });
+      return;
     }
 
     const { diffCoverage } = lcovResult;
@@ -249,6 +278,7 @@ export async function run(args, lifecycle = process) {
       status,
       exitCode,
       diffCoverage,
+      runContext,
     });
   } catch (error) {
     console.error(`Error: ${error.message}`);

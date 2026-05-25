@@ -40,6 +40,10 @@
         "minLength": 1
       }
     },
+    "extendDefaultExclude": {
+      "type": "boolean",
+      "description": "Append custom exclude patterns to the built-in exclusions instead of replacing them."
+    },
     "gitTimeoutMs": {
       "type": "integer",
       "minimum": 1,

@@ -1,6 +1,6 @@
 import { describe, expect, test } from '@jest/globals';
 
-import { containsLine, iterateRanges, normalizeRanges, rangesToChangedLinesMap } from '../ranges.js';
+import { containsLine, iterateRanges, normalizeRanges, rangesToChangedLinesMap, toLineRanges } from '../ranges.js';
 import { SOURCE_FILE } from './helpers/fixtures.js';
 
 describe('ranges', () => {
@@ -16,6 +16,17 @@ describe('ranges', () => {
       { start: 1, end: 5 },
       { start: 10, end: 20 },
     ]);
+  });
+
+  test('ignores invalid ranges and accepts missing changed-line values', () => {
+    expect(
+      normalizeRanges([
+        { start: 3, end: 2 },
+        { start: 1.5, end: 2 },
+        { start: 4, end: 4 },
+      ])
+    ).toEqual([{ start: 4, end: 4 }]);
+    expect(toLineRanges(undefined)).toEqual([]);
   });
 
   test('iterates ranges and converts them to the public changed-lines map', () => {

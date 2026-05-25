@@ -113,6 +113,10 @@ function parseOptionalStringArray(name, value, fallback) {
   return value;
 }
 
+function firstDefined(...values) {
+  return values.find((value) => value !== undefined);
+}
+
 function resolveCommentEnabled(cliArgs, fileConfigs, env) {
   if (cliArgs.comment !== undefined) {
     return parseOptionalBoolean('comment.enabled', cliArgs.comment, undefined);
@@ -126,7 +130,19 @@ function resolveCommentEnabled(cliArgs, fileConfigs, env) {
     return parseOptionalBoolean('comment.enabled', fileConfigs.comment.enabled, undefined);
   }
 
-  return env.isCI && (env.type === ENV_TYPES.GITHUB || env.type === ENV_TYPES.GITLAB);
+  if (!env.isCI) {
+    return false;
+  }
+
+  if (env.type === ENV_TYPES.GITHUB) {
+    return Boolean(env.pullRequestNumber);
+  }
+
+  if (env.type === ENV_TYPES.GITLAB) {
+    return Boolean(env.mergeRequestIid);
+  }
+
+  return false;
 }
 
 function resolveCommentConfig(cliArgs, fileConfigs, env) {
@@ -134,43 +150,62 @@ function resolveCommentConfig(cliArgs, fileConfigs, env) {
     enabled: resolveCommentEnabled(cliArgs, fileConfigs, env),
     maxFiles: parseOptionalInteger(
       'comment.maxFiles',
-      cliArgs['comment-max-files'] ?? fileConfigs.comment?.maxFiles,
+      firstDefined(cliArgs['comment-max-files'], fileConfigs.comment?.maxFiles),
       COMMENT_DEFAULTS.maxFiles,
       CONFIG_LIMITS.commentMaxFilesMin,
       CONFIG_LIMITS.commentMaxFilesMax
     ),
     maxLinesPerFile: parseOptionalInteger(
       'comment.maxLinesPerFile',
-      cliArgs['comment-max-lines-per-file'] ?? fileConfigs.comment?.maxLinesPerFile,
+      firstDefined(cliArgs['comment-max-lines-per-file'], fileConfigs.comment?.maxLinesPerFile),
       COMMENT_DEFAULTS.maxLinesPerFile,
       CONFIG_LIMITS.commentMaxLinesPerFileMin,
       CONFIG_LIMITS.commentMaxLinesPerFileMax
     ),
     failOnError: parseOptionalBoolean(
       'comment.failOnError',
-      cliArgs['comment-fail-on-error'] ?? fileConfigs.comment?.failOnError,
+      firstDefined(cliArgs['comment-fail-on-error'], fileConfigs.comment?.failOnError),
       COMMENT_DEFAULTS.failOnError
     ),
   };
 }
 
+function resolveExcludeConfig(fileConfigs) {
+  const customExclude = parseOptionalStringArray('exclude', fileConfigs.exclude, undefined);
+  const extendDefaultExclude = parseOptionalBoolean('extendDefaultExclude', fileConfigs.extendDefaultExclude, false);
+
+  if (!customExclude) {
+    return CONFIG_DEFAULTS.exclude;
+  }
+
+  if (!extendDefaultExclude) {
+    return customExclude;
+  }
+
+  return [...new Set([...CONFIG_DEFAULTS.exclude, ...customExclude])];
+}
+
 function resolveConfig(cliArgs, fileConfigs, env) {
-  const lcovPath = parseOptionalString('lcovPath', cliArgs.lcov ?? fileConfigs.lcovPath, CONFIG_DEFAULTS.lcovPath);
+  const lcovPath = parseOptionalString(
+    'lcovPath',
+    firstDefined(cliArgs.lcov, fileConfigs.lcovPath),
+    CONFIG_DEFAULTS.lcovPath
+  );
   const baseBranch = parseOptionalString(
     'baseBranch',
-    cliArgs.baseBranch ?? cliArgs.base ?? fileConfigs.baseBranch,
+    firstDefined(cliArgs.baseBranch, cliArgs.base, fileConfigs.baseBranch),
     undefined
   );
   const rootDir = parseOptionalString(
     'rootDir',
-    cliArgs.rootDir ?? cliArgs['root-dir'] ?? fileConfigs.rootDir,
+    firstDefined(cliArgs.rootDir, cliArgs['root-dir'], fileConfigs.rootDir),
     process.cwd()
   );
 
   return {
     threshold: parseOptionalFiniteNumber(
       'threshold',
-      cliArgs.threshold ?? fileConfigs.threshold,
+      firstDefined(cliArgs.threshold, fileConfigs.threshold),
       CONFIG_DEFAULTS.threshold,
       CONFIG_LIMITS.thresholdMin,
       CONFIG_LIMITS.thresholdMax
@@ -180,20 +215,20 @@ function resolveConfig(cliArgs, fileConfigs, env) {
     rootDir: resolve(rootDir),
     failOnEmpty: parseOptionalBoolean(
       'failOnEmpty',
-      cliArgs.failOnEmpty ?? cliArgs['fail-on-empty'] ?? fileConfigs.failOnEmpty,
+      firstDefined(cliArgs.failOnEmpty, cliArgs['fail-on-empty'], fileConfigs.failOnEmpty),
       false
     ),
-    exclude: parseOptionalStringArray('exclude', fileConfigs.exclude, CONFIG_DEFAULTS.exclude),
+    exclude: resolveExcludeConfig(fileConfigs),
     gitTimeoutMs: parseOptionalInteger(
       'gitTimeoutMs',
-      cliArgs['git-timeout-ms'] ?? fileConfigs.gitTimeoutMs,
+      firstDefined(cliArgs['git-timeout-ms'], fileConfigs.gitTimeoutMs),
       CONFIG_DEFAULTS.gitTimeoutMs,
       CONFIG_LIMITS.gitTimeoutMsMin,
       CONFIG_LIMITS.gitTimeoutMsMax
     ),
     apiTimeoutMs: parseOptionalInteger(
       'apiTimeoutMs',
-      cliArgs['api-timeout-ms'] ?? fileConfigs.apiTimeoutMs,
+      firstDefined(cliArgs['api-timeout-ms'], fileConfigs.apiTimeoutMs),
       CONFIG_DEFAULTS.apiTimeoutMs,
       CONFIG_LIMITS.apiTimeoutMsMin,
       CONFIG_LIMITS.apiTimeoutMsMax

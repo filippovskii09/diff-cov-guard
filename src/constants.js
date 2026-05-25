@@ -19,11 +19,22 @@ export const CONFIG_DEFAULTS = {
   exclude: [
     '**/__test__/**',
     '**/__tests__/**',
+    '**/*.test.cjs',
     '**/*.test.js',
     '**/*.test.jsx',
+    '**/*.test.mjs',
+    '**/*.test.ts',
+    '**/*.test.tsx',
+    '**/*.spec.cjs',
     '**/*.spec.js',
     '**/*.spec.jsx',
+    '**/*.spec.mjs',
+    '**/*.spec.ts',
+    '**/*.spec.tsx',
+    'jest.config.cjs',
     'jest.config.js',
+    'jest.config.mjs',
+    'jest.config.ts',
   ],
   gitTimeoutMs: TIMEOUT_DEFAULTS.gitTimeoutMs,
   apiTimeoutMs: TIMEOUT_DEFAULTS.apiTimeoutMs,
@@ -103,8 +114,9 @@ export const COMMENT_STATUSES = {
 export const COMMENT_REASONS = {
   NO_CHANGED_FILES: 'No changed files.',
   ONLY_NON_SOURCE_FILES: 'Only non-source files changed.',
-  NO_EXECUTABLE_CHANGED_LINES: 'No executable changed lines.',
+  NO_EXECUTABLE_CHANGED_LINES: 'No executable changed JS/TS lines matched coverage report.',
   LCOV_EMPTY_OR_MISSING: 'LCOV file is missing or empty.',
+  NO_LCOV_MATCH: 'No LCOV records matched changed source files.',
 };
 
 export const COMMENT_DEFAULTS = {

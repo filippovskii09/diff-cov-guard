@@ -65,6 +65,19 @@ describe('environment', () => {
     });
   });
 
+  test('reads top-level GitHub event numbers and tolerates invalid event payloads', () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'diff-cov-env-'));
+    const eventPath = join(tempDir, 'event.json');
+    writeFileSync(eventPath, JSON.stringify({ number: GITHUB_EVENT_PULL_REQUEST_NUMBER }));
+    setEnv({ GITHUB_ACTIONS: 'true', GITHUB_EVENT_PATH: eventPath });
+
+    expect(getEnvironment().pullRequestNumber).toBe(GITHUB_EVENT_PULL_REQUEST_NUMBER);
+
+    writeFileSync(eventPath, '{');
+
+    expect(getEnvironment().pullRequestNumber).toBeNull();
+  });
+
   test('uses DIFF_COVER_COMPARE_BRANCH before provider base branch metadata', () => {
     setEnv({
       GITHUB_ACTIONS: 'true',

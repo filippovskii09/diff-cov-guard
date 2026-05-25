@@ -8,6 +8,10 @@ const GIT_DIFF_FILE_PREFIX = '+++ b/';
 const HUNK_HEADER_PREFIX = '@@';
 const GIT_OUTPUT_LIMIT = 1000000;
 const FORCE_KILL_DELAY_MS = 1000;
+const NO_MERGE_BASE_MESSAGE = [
+  'No merge base found. This usually means CI uses a shallow clone.',
+  'Set GIT_DEPTH: 0 or fetch full history before running diff-cov-guard.',
+].join('\n');
 
 function parseRemoteHeadBranch(output) {
   const headBranchLine = output.split('\n').find((line) => line.trim().startsWith('HEAD branch:'));
@@ -39,6 +43,12 @@ function buildGitError(args, code, stderr) {
 
 function buildGitTimeoutError(args, timeoutMs) {
   return new Error(`Git command timed out after ${timeoutMs}ms (${formatGitCommand(args)})`);
+}
+
+function buildDiffError(action, error) {
+  const shallowCloneHint = /\bno merge base\b/i.test(error.message) ? `\n${NO_MERGE_BASE_MESSAGE}` : '';
+
+  return new Error(`${action}: ${error.message}${shallowCloneHint}`, { cause: error });
 }
 
 function remoteTrackingRef(branch) {
@@ -239,7 +249,7 @@ export async function getChangedFiles(baseBranch, timeoutMs = TIMEOUT_DEFAULTS.g
 
     return parseNullDelimitedOutput(output);
   } catch (error) {
-    throw new Error(`Failed to get changed files: ${error.message}`, { cause: error });
+    throw buildDiffError('Failed to get changed files', error);
   }
 }
 
@@ -375,7 +385,7 @@ export async function getChangedLines(baseBranch, changedFiles, timeoutMs = TIME
       wait,
     ]);
   } catch (error) {
-    throw new Error(`Failed to get changed lines: ${error.message}`, { cause: error });
+    throw buildDiffError('Failed to get changed lines', error);
   }
 
   return rangesToChangedLinesMap(rangesByFile);

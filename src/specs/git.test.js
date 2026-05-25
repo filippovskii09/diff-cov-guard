@@ -151,6 +151,13 @@ describe('git', () => {
       `refs/remotes/origin/${RELEASE_BRANCH}`
     );
     expect(spawn.mock.calls).toEqual([checkRefFormatCall(RELEASE_BRANCH), fetchCall(RELEASE_BRANCH)]);
+
+    spawn.mockReset();
+    mockGitProcess({});
+    mockGitProcess({});
+
+    await expect(git.fetchBranch(`refs/heads/${DEVELOP_BRANCH}`)).resolves.toBe(`origin/${DEVELOP_BRANCH}`);
+    expect(spawn.mock.calls).toEqual([checkRefFormatCall(DEVELOP_BRANCH), fetchCall(DEVELOP_BRANCH)]);
   });
 
   test('throws when fetch retry fails with stderr context', async () => {
@@ -189,6 +196,16 @@ describe('git', () => {
 
     await expect(promise).rejects.toThrow('Failed to get changed files:');
     await expect(promise).rejects.toThrow('bad diff');
+    await expect(promise).rejects.not.toThrow('shallow clone');
+  });
+
+  test('explains missing merge base caused by shallow CI history for changed files', async () => {
+    mockGitProcess({ stderr: 'fatal: origin/main...HEAD: no merge base', code: 1 });
+
+    const promise = git.getChangedFiles(DEFAULT_BRANCH);
+
+    await expect(promise).rejects.toThrow('No merge base found. This usually means CI uses a shallow clone.');
+    await expect(promise).rejects.toThrow('Set GIT_DEPTH: 0 or fetch full history before running diff-cov-guard.');
   });
 
   test('parses streamed changed lines across files and hunk shapes', async () => {
@@ -218,12 +235,37 @@ describe('git', () => {
     expect([...result.get(SOURCE_FILE)]).toEqual([1, 2]);
   });
 
+  test('ignores deletion-only and malformed added-side hunk ranges', async () => {
+    mockGitProcess({
+      stdout: [
+        `+++ b/${SOURCE_FILE}`,
+        '@@ -1 + @@',
+        '@@ -2 +x,2 @@',
+        '@@ -3 +3,x @@',
+        '@@ -4 +4,0 @@',
+        '@@ -5 +5,1 @@',
+      ].join('\n'),
+    });
+
+    const result = await git.getChangedLines(DEFAULT_BRANCH, [SOURCE_FILE]);
+
+    expect([...result.get(SOURCE_FILE)]).toEqual([5]);
+  });
+
   test('returns initialized changed lines for zero files and wraps parser errors', async () => {
     await expect(git.getChangedLines(DEFAULT_BRANCH, [])).resolves.toEqual(new Map());
     expect(spawn).not.toHaveBeenCalled();
 
     mockGitProcess({ stderr: 'diff failed', code: 1 });
     await expect(git.getChangedLines(DEFAULT_BRANCH, [SOURCE_FILE])).rejects.toThrow('Failed to get changed lines:');
+  });
+
+  test('explains missing merge base when it occurs while reading changed lines', async () => {
+    mockGitProcess({ stderr: 'fatal: origin/main...HEAD: no merge base', code: 1 });
+
+    await expect(git.getChangedLines(DEFAULT_BRANCH, [SOURCE_FILE])).rejects.toThrow(
+      'Set GIT_DEPTH: 0 or fetch full history before running diff-cov-guard.'
+    );
   });
 
   test('kills a hanging Git child when timeout is reached', async () => {
@@ -237,6 +279,57 @@ describe('git', () => {
 
     await assertion;
     expect(child.kill).toHaveBeenCalledWith('SIGTERM');
+  });
+
+  test('force kills a Git child that does not stop after its timeout', async () => {
+    jest.useFakeTimers();
+    const child = new GitChild();
+    child.kill.mockImplementation((signal) => {
+      if (signal === 'SIGKILL') {
+        child.emit('close', null, signal);
+      }
+
+      return true;
+    });
+    spawn.mockReturnValueOnce(child);
+
+    const promise = git.getChangedFiles(DEFAULT_BRANCH, 1);
+    const assertion = expect(promise).rejects.toThrow('Git command timed out after 1ms');
+    await jest.advanceTimersByTimeAsync(1001);
+
+    await assertion;
+    expect(child.kill).toHaveBeenNthCalledWith(1, 'SIGTERM');
+    expect(child.kill).toHaveBeenNthCalledWith(2, 'SIGKILL');
+  });
+
+  test('reports failure to start a Git process', async () => {
+    const child = new GitChild();
+    spawn.mockImplementationOnce(() => {
+      queueMicrotask(() => child.emit('error', new Error('spawn failed')));
+      return child;
+    });
+
+    await expect(git.getChangedFiles(DEFAULT_BRANCH)).rejects.toThrow('Failed to start git diff');
+  });
+
+  test('bounds captured stderr from Git commands', async () => {
+    const capturedPrefix = 'a'.repeat(1000000);
+    const child = new GitChild();
+    spawn.mockImplementationOnce(() => {
+      queueMicrotask(() => {
+        child.stderr.write(capturedPrefix);
+        child.stderr.end('discarded');
+        child.stdout.end();
+        child.emit('close', 1, null);
+      });
+
+      return child;
+    });
+
+    const promise = git.getChangedFiles(DEFAULT_BRANCH);
+
+    await expect(promise).rejects.toThrow('Git command failed');
+    await expect(promise).rejects.not.toThrow('discarded');
   });
 
   test('detects dirty and clean git status', async () => {
