@@ -59,6 +59,7 @@ describe('lcov', () => {
     expect(isLcovEmptyOrMissing(tempFile(validLcov))).toBe(false);
 
     await expect(parseLcov(missingLcovPath)).resolves.toMatchObject({ emptyOrMissing: true });
+    await expect(parseLcov(tempFile(''))).resolves.toMatchObject({ emptyOrMissing: true });
     await expect(parseLcov(tempFile(whitespaceOnlyLcov))).resolves.toMatchObject({ emptyOrMissing: true });
   });
 
@@ -120,12 +121,16 @@ describe('lcov', () => {
     const noRecordsLcov = 'TN:\n';
     const emptySourceRecord = 'SF:   \n';
     const emptyLineCoverageRecord = `SF:${SOURCE_FILE}\nDA:\n`;
+    const missingCommaCoverageRecord = `SF:${SOURCE_FILE}\nDA:1\n`;
+    const missingHitCountRecord = `SF:${SOURCE_FILE}\nDA:1,\n`;
     const invalidLineCoverageRecord = `SF:${SOURCE_FILE}\nDA:x,1\n`;
 
     await expect(parseLcov(join(tmpdir(), NOT_FOUND_LCOV_FILE))).resolves.toMatchObject({ emptyOrMissing: true });
     await expect(parseLcov(tempFile(noRecordsLcov))).resolves.toMatchObject({ noRecords: true });
     await expect(parseLcov(tempFile(emptySourceRecord))).rejects.toThrow('empty SF record');
     await expect(parseLcov(tempFile(emptyLineCoverageRecord))).rejects.toThrow('malformed DA record');
+    await expect(parseLcov(tempFile(missingCommaCoverageRecord))).rejects.toThrow('malformed DA record');
+    await expect(parseLcov(tempFile(missingHitCountRecord))).rejects.toThrow('malformed DA record');
     await expect(parseLcov(tempFile(invalidLineCoverageRecord))).rejects.toThrow('malformed DA record');
   });
 });

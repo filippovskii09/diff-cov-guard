@@ -135,14 +135,53 @@ describe('config', () => {
     });
   });
 
-  test('enables comments by default in supported CI environments', () => {
+  test('extends built-in excludes only when configured explicitly', () => {
+    makeTempProject();
+    writeProjectJson(CONFIG_FILES.RC_CONFIG_FILE, {
+      exclude: ['src/generated/**', CONFIG_DEFAULTS.exclude[0]],
+      extendDefaultExclude: true,
+    });
+
+    expect(loadConfig().exclude).toEqual([...CONFIG_DEFAULTS.exclude, 'src/generated/**']);
+  });
+
+  test('enables comments by default only in pull request and merge request CI contexts', () => {
     makeTempProject();
 
-    expect(loadConfig({}, { type: 'GITHUB', isCI: true })).toMatchObject({
+    expect(loadConfig({}, { type: 'GITHUB', isCI: true, pullRequestNumber: 12 })).toMatchObject({
       comment: {
         enabled: true,
       },
     });
+    expect(loadConfig({}, { type: 'GITLAB', isCI: true, mergeRequestIid: '34' })).toMatchObject({
+      comment: {
+        enabled: true,
+      },
+    });
+    expect(loadConfig({}, { type: 'GITHUB', isCI: true })).toMatchObject({
+      comment: {
+        enabled: false,
+      },
+    });
+    expect(loadConfig({}, { type: 'GITLAB', isCI: true })).toMatchObject({
+      comment: {
+        enabled: false,
+      },
+    });
+    expect(loadConfig({}, { type: 'CUSTOM', isCI: true })).toMatchObject({
+      comment: {
+        enabled: false,
+      },
+    });
+  });
+
+  test('allows explicit comment enablement and disablement to override CI defaults', () => {
+    makeTempProject();
+    const pullRequestEnv = { type: 'GITHUB', isCI: true, pullRequestNumber: 12 };
+
+    expect(loadConfig({ 'no-comment': true }, pullRequestEnv).comment.enabled).toBe(false);
+    expect(loadConfig({ comment: false }, pullRequestEnv).comment.enabled).toBe(false);
+    expect(loadConfig({ comment: true }).comment.enabled).toBe(true);
   });
 
   test('merges nested comment config with rc values overriding package values', () => {
@@ -212,6 +251,9 @@ describe('config', () => {
   test.each([
     ['threshold', { threshold: '101' }, 'threshold'],
     ['threshold', { threshold: 'abc' }, 'threshold'],
+    ['threshold type', { threshold: null }, 'threshold'],
+    ['threshold empty', { threshold: ' ' }, 'threshold'],
+    ['threshold non-finite', { threshold: 'Infinity' }, 'threshold'],
     ['git timeout', { 'git-timeout-ms': '0' }, 'gitTimeoutMs'],
     ['git timeout', { 'git-timeout-ms': '300001' }, 'gitTimeoutMs'],
     ['api timeout', { 'api-timeout-ms': '0' }, 'apiTimeoutMs'],
@@ -219,10 +261,39 @@ describe('config', () => {
     ['comment max files', { 'comment-max-files': '101' }, 'comment.maxFiles'],
     ['comment max lines', { 'comment-max-lines-per-file': '501' }, 'comment.maxLinesPerFile'],
     ['comment max files integer', { 'comment-max-files': '1.5' }, 'comment.maxFiles'],
+    ['comment max files type', { 'comment-max-files': null }, 'comment.maxFiles'],
+    ['comment enabled', { comment: 'true' }, 'comment.enabled'],
+    ['comment failure behavior', { 'comment-fail-on-error': 'true' }, 'comment.failOnError'],
+    ['fail-on-empty type', { failOnEmpty: null }, 'failOnEmpty'],
+    ['LCOV path', { lcov: '' }, 'lcovPath'],
+    ['base branch', { base: '' }, 'baseBranch'],
+    ['root directory', { 'root-dir': '' }, 'rootDir'],
   ])('rejects invalid %s values', (_label, cliArgs, configName) => {
     makeTempProject();
 
     expect(() => loadConfig(cliArgs)).toThrow(`Invalid config value "${configName}"`);
+  });
+
+  test('accepts inclusive numeric configuration boundaries', () => {
+    makeTempProject();
+
+    expect(
+      loadConfig({
+        threshold: '0',
+        'git-timeout-ms': '1',
+        'api-timeout-ms': '60000',
+        'comment-max-files': '1',
+        'comment-max-lines-per-file': '500',
+      })
+    ).toMatchObject({
+      threshold: 0,
+      gitTimeoutMs: 1,
+      apiTimeoutMs: 60000,
+      comment: {
+        maxFiles: 1,
+        maxLinesPerFile: 500,
+      },
+    });
   });
 
   test('rejects invalid file config values after precedence is applied', () => {
@@ -244,5 +315,14 @@ describe('config', () => {
     });
 
     expect(() => loadConfig()).toThrow('Invalid config value "exclude"');
+  });
+
+  test('rejects invalid extendDefaultExclude values', () => {
+    makeTempProject();
+    writeProjectJson(CONFIG_FILES.RC_CONFIG_FILE, {
+      extendDefaultExclude: 'true',
+    });
+
+    expect(() => loadConfig()).toThrow('Invalid config value "extendDefaultExclude"');
   });
 });
