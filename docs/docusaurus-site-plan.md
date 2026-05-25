@@ -378,6 +378,8 @@ Purpose: Help users who do not already have LCOV.
 Must include:
 
 - Jest coverage config example;
+- quiet CI coverage script example (`--coverageReporters=lcovonly --silent --ci`) and scoped guidance for
+  `--passWithNoTests`;
 - Vitest coverage config example;
 - nyc/Istanbul example if supported by LCOV output;
 - verification command: confirm `coverage/lcov.info` exists and has `SF:` records.

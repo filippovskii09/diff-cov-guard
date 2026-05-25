@@ -49,6 +49,26 @@ Recommended `.diffcovguardrc`:
   "failOnEmpty": true,
   "gitTimeoutMs": 30000,
   "apiTimeoutMs": 10000,
+  "exclude": [
+    "**/__test__/**",
+    "**/__tests__/**",
+    "**/*.test.cjs",
+    "**/*.test.js",
+    "**/*.test.jsx",
+    "**/*.test.mjs",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.cjs",
+    "**/*.spec.js",
+    "**/*.spec.jsx",
+    "**/*.spec.mjs",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "jest.config.cjs",
+    "jest.config.js",
+    "jest.config.mjs",
+    "jest.config.ts"
+  ],
   "comment": {
     "maxFiles": 10,
     "maxLinesPerFile": 20,
@@ -56,6 +76,20 @@ Recommended `.diffcovguardrc`:
   }
 }
 ```
+
+`exclude` replaces the default exclusion list when configured. To add project-specific exclusions without repeating the
+built-in list, set `extendDefaultExclude: true`:
+
+```json
+{
+  "extendDefaultExclude": true,
+  "exclude": ["frontend/jest.config.ts", "**/*.generated.ts"]
+}
+```
+
+The defaults shown above exclude `__test__`/`__tests__` directories, `*.test.*` and `*.spec.*` files for the supported
+JS/TS extensions, and Jest config entrypoints. Patterns support `*`, `**`, and `?`, not brace expansion. Use explicit
+patterns if your repository also excludes other executable config files, for example `vitest.config.ts`.
 
 If your LCOV file uses paths relative to a package directory, add `rootDir`:
 
@@ -73,6 +107,40 @@ You can also initialize config interactively:
 ```sh
 npx diff-cov-guard init
 ```
+
+## Coverage Command In CI
+
+The guard reads an LCOV report; it does not need the test runner's regular progress output. For Jest-based projects,
+consider keeping an explicit quiet CI coverage command alongside the normal local command:
+
+```json
+{
+  "scripts": {
+    "test:cov": "jest --coverage",
+    "test:cov:ci": "jest --coverage --coverageReporters=lcovonly --silent --ci"
+  }
+}
+```
+
+If a package or workspace is intentionally allowed to contain no matching tests, add `--passWithNoTests`:
+
+```json
+{
+  "scripts": {
+    "test:cov:ci": "jest --coverage --coverageReporters=lcovonly --passWithNoTests --silent --ci"
+  }
+}
+```
+
+Use the same flags through your Jest wrapper when applicable, for example `fedx-scripts jest --coverage
+--coverageReporters=lcovonly --passWithNoTests --silent --ci`.
+
+- `--coverageReporters=lcovonly` writes the LCOV input required by the guard without printing a separate total-coverage
+  table. Omit it when the same job must display total project coverage too.
+- `--silent` suppresses `console.*` output emitted by tests so application logging does not bury the guard result.
+- `--ci` makes Jest use non-interactive CI behavior and fail on obsolete snapshots instead of updating them.
+- `--passWithNoTests` is useful for selective monorepo/package jobs, but should not be added when "no tests found"
+  indicates a broken test configuration.
 
 ## Use Locally
 
@@ -122,7 +190,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run test:cov
+      - run: npm run test:cov:ci
       - run: npx -y diff-cov-guard
 ```
 
@@ -150,34 +218,55 @@ is a single stable issue comment that is updated on each run.
 diff_coverage:
   image: node:20
   stage: test
+  variables:
+    GIT_DEPTH: 0
   script:
     - npm ci
-    - npm run test:cov
+    - npm run test:cov:ci
     - npx -y diff-cov-guard
   rules:
     - if: $CI_MERGE_REQUEST_ID
 ```
 
-Set `DIFF_COVER_COMPARE_BRANCH` if your GitLab pipeline checks out a ref where
-`CI_MERGE_REQUEST_TARGET_BRANCH_NAME` is unavailable or not the branch you want to compare against.
+`GIT_DEPTH: 0` keeps enough history for the three-dot MR diff. If a shallow checkout causes
+`fatal: origin/main...HEAD: no merge base`, unshallow the job with `GIT_DEPTH: 0`.
+
+For an explicit target-branch setup, fetch the target into its remote-tracking ref and tell the guard to use that ref:
+
+```yaml
+script:
+  - git fetch origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME:refs/remotes/origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+  - DIFF_COVER_COMPARE_BRANCH="origin/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME}" npx -y diff-cov-guard
+```
+
+Use the explicit setup when `CI_MERGE_REQUEST_TARGET_BRANCH_NAME` is not otherwise available to the guard or the
+checked-out ref does not carry a usable comparison base.
 
 For GitLab MR comments, set `DIFF_COV_GUARD_GITLAB_TOKEN` or `GITLAB_TOKEN` with permission to create and update merge
-request notes. The guard does not rely on `CI_JOB_TOKEN` for writing notes.
+request notes. This is an MR note created and updated through the Notes API, not a native GitLab coverage widget. Use a
+project, group, or personal access token with the `api` scope and access to the project; the guard does not rely on
+`CI_JOB_TOKEN` for writing notes. If the token is a protected CI/CD variable, GitLab does not expose it to pipelines on
+unprotected source branches, so the comment step will have no token in those MR pipelines.
 
 ## PR/MR Comments
 
 When comments are enabled, `diff-cov-guard` publishes a short Markdown summary with:
 
 - pass, fail, or skipped status;
-- diff coverage, required threshold, and covered executable line count;
+- diff coverage, required threshold, and covered changed executable line count;
 - a per-file table capped by `comment.maxFiles`;
-- uncovered changed executable lines capped by `comment.maxLinesPerFile`.
+- a compact uncovered-line summary capped by `comment.maxLinesPerFile`, with a complete expanded list when truncated;
+- compare-ref and LCOV path diagnostics where available.
 
-Comment output can show at most `comment.maxFiles: 100` files and at most `comment.maxLinesPerFile: 500` uncovered
-lines per file.
+Comment summary limits support at most `comment.maxFiles: 100` files and `comment.maxLinesPerFile: 500` uncovered lines
+per file. Failed comments keep any truncated uncovered-line detail available in a collapsible inline section.
 
 Publishing failures are warnings by default and do not change the coverage exit code. Set `comment.failOnError: true` or
 pass `--comment-fail-on-error` if CI should fail when the API call cannot publish the comment.
+
+```sh
+npx -y diff-cov-guard --comment --comment-fail-on-error
+```
 
 ## Output
 
