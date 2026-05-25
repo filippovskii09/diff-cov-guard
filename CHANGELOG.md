@@ -6,6 +6,19 @@ This project follows Semantic Versioning.
 
 ## [Unreleased]
 
+## [1.1.6] - 2026-05-26
+
+### Changed
+
+- Reduce the published npm package size by excluding internal tests and test fixtures from the tarball.
+- Synchronize npm package metadata for the `1.1.6` release.
+
+## [1.1.5] - 2026-05-25
+
+### Changed
+
+- Publish a patch release with no runtime or public API behavior changes relative to `1.1.4`.
+
 ## [1.1.4] - 2026-05-25
 
 ### Added
