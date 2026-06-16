@@ -23,10 +23,5 @@ export default {
     '!**/specs/**',
     '!src/constants.js',
   ],
-  testMatch: [
-    '<rootDir>/src/**/*.test.js',
-    '<rootDir>/bin/**/*.test.js',
-    '<rootDir>/tests/**/*.test.js',
-    '<rootDir>/src/**/*.spec.js',
-  ],
+  testMatch: ['<rootDir>/src/**/*.test.js', '<rootDir>/bin/**/*.test.js', '<rootDir>/src/**/*.spec.js'],
 };

@@ -25,6 +25,7 @@
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage=false",
+    "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage=false --testMatch=\"<rootDir>/tests/e2e/**/*.test.js\"",
     "test:cov": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage"
   },
   "keywords": [
